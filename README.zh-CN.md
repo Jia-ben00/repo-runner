@@ -115,7 +115,7 @@ SBOM: 187 components → sbom.json (CycloneDX 1.5)
 | 脚本 | 用途 | 输出 |
 |---|---|---|
 | `scripts/detect_stack.py` | 技术栈/包管理器/脚本/版本/docker 探测 | JSON |
-| `scripts/security_gate.py` | 安装/启动面供应链与恶意模式扫描 | JSON + 退出码 `0/1/2` |
+| `scripts/security_gate.py` | 安装/启动面供应链与恶意模式扫描 | JSON + 退出码 `0/1/2`；`--sarif` 输出 SARIF 2.1.0 |
 | `scripts/health_check.py` | 启动服务的 TCP + HTTP 健康探测 | JSON + 退出码 |
 | `scripts/sbom.py` | 从锁文件/清单生成 CycloneDX 1.5 SBOM（npm/pnpm/yarn/pip/uv/poetry/Go/Rust/Ruby/PHP） | JSON |
 | `scripts/docker_sandbox.py` | 生成（或 `--exec`）加固 `docker run` 隔离命令——非 root、cap-drop、只读 rootfs、资源限制 | JSON + 退出码 |
@@ -126,6 +126,22 @@ SBOM: 187 components → sbom.json (CycloneDX 1.5)
 - **退出码即契约**：`0` 放行 · `1` 先与用户确认 · `2` 停止询问——high/critical 绝不自动执行。
 - **混淆即视为有罪**：base64/hex 载荷、字符串拼接命令、下载后执行——任何隐藏内容都按最坏情况处理。
 - 完整人工模式清单：[`references/security-patterns.md`](references/security-patterns.md)。
+
+## Code Scanning 集成
+
+`security_gate.py --sarif <dir>` 输出 [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)——GitHub code scanning 的标准格式。接入你自己的 CI 后，告警会直接显示在 PR 上：
+
+```yaml
+- name: 用 repo-runner security_gate 扫描
+  run: python scripts/security_gate.py --sarif . > security_gate.sarif || true
+- name: 上传到 code scanning
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: security_gate.sarif
+    category: repo-runner
+```
+
+告警出现在 **Security → Code scanning** 页面和 PR 内联注释中。严重级映射：`critical`/`high` → error，`medium` → warning，`low`/`info` → note。本仓库自身的 CI 每次 push 到 main 都会上传一份示例。
 
 ## 兼容性
 

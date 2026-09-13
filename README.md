@@ -115,7 +115,7 @@ Repro: git clone --depth 1 <url> && cd <dir> && npm ci && node index.js
 | Script | Purpose | Output |
 |---|---|---|
 | `scripts/detect_stack.py` | Stack / package manager / scripts / version pins / docker detection | JSON |
-| `scripts/security_gate.py` | Supply-chain & malicious-pattern scan of install/start surfaces | JSON + exit `0/1/2` |
+| `scripts/security_gate.py` | Supply-chain & malicious-pattern scan of install/start surfaces | JSON + exit `0/1/2`; `--sarif` for SARIF 2.1.0 |
 | `scripts/health_check.py` | TCP + HTTP health probing of a started service | JSON + exit code |
 | `scripts/sbom.py` | CycloneDX 1.5 SBOM from lockfiles/manifests (npm/pnpm/yarn/pip/uv/poetry/Go/Rust/Ruby/PHP) | JSON |
 | `scripts/docker_sandbox.py` | Hardened `docker run` command (or `--exec`) for isolated runs — non-root, cap-drop, read-only rootfs, limits | JSON + exit code |
@@ -126,6 +126,22 @@ Repro: git clone --depth 1 <url> && cd <dir> && npm ci && node index.js
 - **Exit codes are a contract**: `0` proceed · `1` review with the user first · `2` stop and ask — high/critical findings are never auto-run.
 - **Obfuscation is treated as guilt**: base64/hex payloads, string-spliced commands, download-then-execute — anything hidden is handled as worst-case.
 - Full manual pattern catalog: [`references/security-patterns.md`](references/security-patterns.md).
+
+## Code scanning integration
+
+`security_gate.py --sarif <dir>` emits [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the standard format for GitHub code scanning. Wire it into your own CI to see findings directly on pull requests:
+
+```yaml
+- name: Scan repo with repo-runner security_gate
+  run: python scripts/security_gate.py --sarif . > security_gate.sarif || true
+- name: Upload to code scanning
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: security_gate.sarif
+    category: repo-runner
+```
+
+Findings appear under **Security → Code scanning** and as inline PR annotations. Severity maps `critical`/`high` → error, `medium` → warning, `low`/`info` → note. This repo's own CI uploads a sample on every push to `main`.
 
 ## Compatibility
 

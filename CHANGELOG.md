@@ -2,6 +2,14 @@
 
 All notable changes to repo-runner are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and versioning is [Semantic Versioning](https://semver.org/).
 
+## [v0.4.0] - 2026-09-13
+
+### Added
+
+- `security_gate.py --sarif` — emits [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) for GitHub code scanning. Each finding becomes a `result` with `ruleId`, level (`critical`/`high` → error, `medium` → warning, `low`/`info` → note), message with evidence, and physical location (file + line). Rule definitions include name, short/full description, default configuration, and help URI.
+- CI — generates SARIF from the evil supply-chain fixture and uploads it via `github/codeql-action/upload-sarif@v3` on every push to `main` (category: `repo-runner-security-gate`). Workflow now declares `security-events: write` permission.
+- README (EN + zh-CN) — "Code scanning integration" section with a copy-paste workflow snippet; scripts table notes `--sarif`.
+
 ## [v0.3.0] - 2026-09-13
 
 ### Added
