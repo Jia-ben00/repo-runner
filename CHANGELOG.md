@@ -2,6 +2,22 @@
 
 All notable changes to repo-runner are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and versioning is [Semantic Versioning](https://semver.org/).
 
+## [v0.2.0] - 2026-09-13
+
+### Added
+
+- `scripts/sbom.py` — CycloneDX 1.5 SBOM generation from lockfiles/manifests: npm (`package-lock.json` v1/2/3), pnpm-lock.yaml, yarn.lock (v1), requirements.txt, pyproject.toml, uv.lock, poetry.lock, go.mod, Cargo.lock, Gemfile.lock, composer.lock. Each component carries a purl; unsupported manifests are reported as notes, never silently skipped.
+- `scripts/docker_sandbox.py` — hardened Docker isolation for suspicious repos: non-root user (setpriv drop to nobody/65534), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--read-only` rootfs + tmpfs, `--memory`/`--cpus` limits, repo bind-mounted read-only, single `127.0.0.1` port mapping. `--check-only` prints the command; `--exec` runs it. Auto-picks a base image from stack markers.
+- SKILL.md: isolation-mode step in Stage 3 (gate-flagged repos can be run sandboxed), SBOM step in Stage 5, an SBOM line in the deliverable report, and both new scripts in Resources. Frontmatter description mentions the two capabilities.
+- README (EN + zh-CN): SBOM and sandboxed-run feature bullets + two new rows in the scripts table.
+- `references/troubleshooting.md`: Docker isolation section (docker not found, daemon down, setpriv fallback, slow image pulls, read-only write errors, leftover volume cleanup).
+
+### CI
+
+- `sbom` fixture tests (npm lock + pyproject → CycloneDX structure/purl assertions).
+- `docker_sandbox` command-build assertions (cap-drop/read-only/setpriv present, image detection).
+- New `docker-smoke` job: actually runs a node fixture inside the hardened container on every push/PR and asserts the app ran as uid 65534.
+
 ## [v0.1.0] - 2026-09-13
 
 First public release — a safe, reproducible "get it running" Agent Skill for any GitHub repo or local project.

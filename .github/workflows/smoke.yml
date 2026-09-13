@@ -142,6 +142,47 @@ jobs:
           print('health_check: dead port fails (all_up false, exit 1)')
           PY
 
+      - name: sbom — CycloneDX from lockfiles (npm + pyproject)
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/fix/sbom_node /tmp/fix/sbom_py
+          printf '{"name":"demo","lockfileVersion":3,"packages":{"":{"name":"demo","version":"1.0.0"},"node_modules/express":{"version":"4.18.2"},"node_modules/@babel/core":{"version":"7.23.9"}}}\n' > /tmp/fix/sbom_node/package-lock.json
+          printf '[project]\ndependencies = ["fastapi>=0.100"]\n' > /tmp/fix/sbom_py/pyproject.toml
+
+          python scripts/sbom.py /tmp/fix/sbom_node > /tmp/sbom_node.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/sbom_node.json'))
+          assert d['bomFormat'] == 'CycloneDX' and d['specVersion'] == '1.5', d
+          names = {c['name']: c.get('version') for c in d['components']}
+          assert names.get('express') == '4.18.2', d
+          assert any(c['purl'] == 'pkg:npm/%40babel/core@7.23.9' for c in d['components']), d
+          print('sbom: npm lock -> CycloneDX OK (%d components)' % len(d['components']))
+          PY
+
+          python scripts/sbom.py /tmp/fix/sbom_py > /tmp/sbom_py.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/sbom_py.json'))
+          names = {c['name']: c.get('version') for c in d['components']}
+          assert names.get('fastapi') == '0.100', d
+          print('sbom: pyproject -> CycloneDX OK')
+          PY
+
+      - name: docker_sandbox — hardened command build (check-only)
+        run: |
+          set -euxo pipefail
+          python scripts/docker_sandbox.py --repo /tmp/fix/clean_node --check-only --cmd "npm ci && node index.js" > /tmp/sandbox.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/sandbox.json'))
+          assert d['docker_available'] is True, d
+          assert d['image'] == 'node:22-slim', d
+          for needle in ('--cap-drop', '--read-only', '--security-opt', 'no-new-privileges', 'setpriv'):
+              assert needle in d['command'], (needle, d['command'])
+          print('docker_sandbox: hardened command OK (image=%s)' % d['image'])
+          PY
+
       - name: skill structure — SKILL.md frontmatter + required files
         run: |
           set -euxo pipefail
@@ -156,11 +197,12 @@ jobs:
           assert name and name.group(1).strip(), 'frontmatter name missing'
           assert desc and desc.group(1).strip(), 'frontmatter description missing'
           for f in ('scripts/detect_stack.py', 'scripts/security_gate.py',
-                    'scripts/health_check.py', 'references/security-patterns.md',
+                    'scripts/health_check.py', 'scripts/sbom.py',
+                    'scripts/docker_sandbox.py', 'references/security-patterns.md',
                     'references/stack-recipes.md', 'references/troubleshooting.md',
                     'LICENSE', 'README.md', 'README.zh-CN.md'):
               assert os.path.exists(f), 'required file missing: ' + f
-          print('structure: SKILL.md frontmatter + 9 required files OK')
+          print('structure: SKILL.md frontmatter + 11 required files OK')
           PY
 
   install:
@@ -188,3 +230,34 @@ jobs:
           test -f "$HOME/.claude/skills/repo-runner/SKILL.md"
           grep -q "repo-runner" "$HOME/.agents/.skill-lock.json"
           echo "npx skills install OK (repo-runner -> .agents/skills + .claude/skills)"
+
+  docker-smoke:
+    name: Sandboxed container run (real docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: run a node fixture inside the hardened container
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/fix/sandbox_app
+          printf '{"name":"demo","version":"1.0.0","scripts":{"start":"node index.js"}}\n' > /tmp/fix/sandbox_app/package.json
+          printf 'console.log("sandbox-hello")\n' > /tmp/fix/sandbox_app/index.js
+
+          python scripts/docker_sandbox.py --repo /tmp/fix/sandbox_app --image node:22-slim \
+            --cmd "node index.js && id -u" --exec > /tmp/sandbox_run.json
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/sandbox_run.json'))
+          assert d.get('exit_code') == 0, d
+          out = d.get('container_output', '')
+          assert 'sandbox-hello' in out, d
+          assert '65534' in out, d  # ran as nobody, not root
+          print('docker-smoke: app ran in hardened container as uid 65534')
+          PY

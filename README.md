@@ -27,6 +27,8 @@ Cloning is easy. **Running is where the pain starts**: unknown stacks, broken lo
 - **Lockfile-first installs**: `npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable`, `uv sync`, poetry, pip+venv (PEP 668 aware)
 - **China-friendly out of the box**: npm/pip/Go/Ruby/Maven mirrors + `ghproxy` clone fallback
 - **Reproducible output**: every run ends with a one-line command to re-run everything, plus known issues and workarounds
+- **SBOM out (v0.2)**: emit a CycloneDX 1.5 SBOM from lockfiles/manifests — npm, pnpm, yarn, pip, pyproject, uv, poetry, Go, Rust, Ruby, PHP
+- **Sandboxed runs (v0.2)**: hardened Docker isolation for suspicious repos — non-root, dropped capabilities, read-only rootfs, memory/CPU limits, repo mounted read-only
 - **Portable**: one folder, standard `SKILL.md` format, works with Claude Code, Codex, Cursor, OpenClaw and any agent that loads skills folders
 
 ## Install
@@ -77,6 +79,8 @@ The skill then:
 | `scripts/detect_stack.py` | Stack / package manager / scripts / version pins / docker detection | JSON |
 | `scripts/security_gate.py` | Supply-chain & malicious-pattern scan of install/start surfaces | JSON + exit `0/1/2` |
 | `scripts/health_check.py` | TCP + HTTP health probing of a started service | JSON + exit code |
+| `scripts/sbom.py` | CycloneDX 1.5 SBOM from lockfiles/manifests (npm/pnpm/yarn/pip/uv/poetry/Go/Rust/Ruby/PHP) | JSON |
+| `scripts/docker_sandbox.py` | Hardened `docker run` command (or `--exec`) for isolated runs — non-root, cap-drop, read-only rootfs, limits | JSON + exit code |
 
 ## Security model
 

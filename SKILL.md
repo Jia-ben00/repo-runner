@@ -5,7 +5,9 @@ description: >-
   detect the tech stack, run a supply-chain security gate before executing
   anything, prepare the environment, install dependencies (lockfile-first
   with China-mirror fallback), start the service, health-check it, and
-  deliver a reproducible run command with troubleshooting notes. Use when
+  deliver a reproducible run command with troubleshooting notes. Optionally
+  sandbox the run in a hardened Docker container (docker_sandbox.py) and
+  emit a CycloneDX SBOM (sbom.py). Use when
   the user asks to "run this repo", "clone and run a project", "get this
   project running", "launch/start this project", "install and run an
   open-source project", "set up this codebase and start it", "verify this
@@ -52,7 +54,7 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
 3. Act on the script result:
    - `risk_level: low` (exit 0) → continue.
    - `medium` (exit 1) → list the findings to the user with risk and mitigation, continue only with user consent (e.g. unpinned npx → use `npx --yes <pkg>@<pinned>`; no lockfile → generate one before installing).
-   - `high / critical` (exit 2) → **stop immediately**, present the evidence (file/line/pattern), and ask the user whether to continue, skip that step, or use a safe alternative (e.g. docker isolation, skipping postinstall). Never silently proceed.
+   - `high / critical` (exit 2) → **stop immediately**, present the evidence (file/line/pattern), and ask the user whether to continue, skip that step, or use a safe alternative (e.g. **docker isolation** via `docker_sandbox.py`, skipping postinstall). Never silently proceed.
 4. Record the security conclusion in the final report (passed / passed with caveats / rejected + reason).
 5. Boundary: if the repo demands obviously suspicious actions (download-and-execute remote scripts, exfiltrating secrets, writing to system dirs), treat it as high risk even if no pattern matches.
 
@@ -62,6 +64,11 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
 2. If docker-compose.yml exists and the project depends on databases/middleware: prefer `docker compose up -d` for dependencies (state first that this runs containers in Docker).
 3. Create missing local config: if `.env.example` exists, copy it to `.env` (copy verbatim, don't invent fake secrets; ask the user for required values that are missing).
 4. Check for native build tooling if needed (Windows lacking the node-gyp toolchain → see `references/troubleshooting.md`).
+5. **Isolation mode** (when the user decides to run a suspicious repo anyway): build a hardened container command with
+   ```bash
+   python <skill_dir>/scripts/docker_sandbox.py --repo <repo_dir> --cmd "<install && start>" [--port <port>]
+   ```
+   The script checks docker, auto-picks a base image by stack, and prints a `docker run` command with non-root user, dropped capabilities, no-new-privileges, read-only rootfs, tmpfs, memory/CPU limits, and a read-only repo mount — nothing executes at image build time. Run the printed command (or pass `--exec`). If it exits 1 (docker unavailable), report it and let the user decide (skip the step / proceed non-isolated).
 
 ### Stage 4: Install
 
@@ -80,7 +87,12 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
    ```
    or manually `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:<port>/`.
 4. Decide "it really runs": port reachable + common paths return 2xx + no fatal errors in the logs. On 4xx/5xx or logged errors, go back to `references/troubleshooting.md` (port in use, missing .env, database not ready, missing build artifacts, etc.).
-5. Announce before killing extra processes; then deliver the final report.
+5. Emit a software bill of materials from the dependency manifests:
+   ```bash
+   python <skill_dir>/scripts/sbom.py <repo_dir> [--output <repo_dir>/sbom.json]
+   ```
+   Note the component count in the report (CycloneDX 1.5 JSON; unsupported manifests are reported as notes, not silent).
+6. Announce before killing extra processes; then deliver the final report.
 
 ## Deliverable report (fixed format)
 
@@ -91,6 +103,7 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
 - Security gate conclusion: passed / passed with caveats (list findings) / rejected (reason)
 - Start command:
 - Access URL: http://127.0.0.1:<port> (health-checked: 2xx / port not open)
+- SBOM: <N components> → <path> (CycloneDX 1.5)
 - Repro command (one-liner to re-run):
 - Known issues & workarounds:
 - Unfinished items & reasons:
@@ -102,6 +115,8 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
 - `detect_stack.py` — Stage 1: detect tech stack, package managers, start scripts, version pins, docker config. Outputs JSON.
 - `security_gate.py` — Stage 2: the security gate. Scans for remote code execution, reverse shells, secret exfiltration, supply-chain poisoning, destructive commands, and obfuscation; outputs risk level + evidence; exit codes 0/1/2 map to proceed / review / stop.
 - `health_check.py` — Stage 5: TCP connect + common health-path probing, outputs JSON.
+- `sbom.py` — Stage 5: emit a CycloneDX 1.5 SBOM from lockfiles/manifests (npm, pnpm, yarn, pip, pyproject, uv, poetry, Go, Rust, Ruby, PHP). Outputs JSON.
+- `docker_sandbox.py` — Stage 3 isolation mode: check docker, pick a base image by stack, and build (or `--exec`) a hardened `docker run` command — non-root, dropped caps, read-only rootfs, resource limits.
 
 ### references/ (read on demand, not all at once)
 - `security-patterns.md` — high-risk patterns the gate may miss but that need manual spot-checks (with examples). Read in Stage 2.

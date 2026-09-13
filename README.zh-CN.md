@@ -27,6 +27,8 @@
 - **锁文件优先安装**：`npm ci`、`pnpm install --frozen-lockfile`、`yarn install --immutable`、`uv sync`、poetry、pip+venv（兼容 PEP 668）
 - **开箱即用国内友好**：npm/pip/Go/Ruby/Maven 镜像 + `ghproxy` 克隆兜底
 - **输出可复现**：每次运行都以"一行命令重跑"收尾，并附已知问题与规避
+- **SBOM 输出（v0.2）**：从锁文件/清单生成 CycloneDX 1.5 SBOM——npm、pnpm、yarn、pip、pyproject、uv、poetry、Go、Rust、Ruby、PHP
+- **沙箱隔离运行（v0.2）**：对可疑仓库提供加固 Docker 隔离——非 root、降权（cap-drop）、只读 rootfs、内存/CPU 限制、仓库只读挂载
 - **随处可装**：一个文件夹、标准 `SKILL.md` 格式，兼容 Claude Code、Codex、Cursor、OpenClaw 及任何支持 skill 文件夹的代理
 
 ## 安装
@@ -77,6 +79,8 @@ skill 会依次：
 | `scripts/detect_stack.py` | 技术栈/包管理器/脚本/版本/docker 探测 | JSON |
 | `scripts/security_gate.py` | 安装/启动面供应链与恶意模式扫描 | JSON + 退出码 `0/1/2` |
 | `scripts/health_check.py` | 启动服务的 TCP + HTTP 健康探测 | JSON + 退出码 |
+| `scripts/sbom.py` | 从锁文件/清单生成 CycloneDX 1.5 SBOM（npm/pnpm/yarn/pip/uv/poetry/Go/Rust/Ruby/PHP） | JSON |
+| `scripts/docker_sandbox.py` | 生成（或 `--exec`）加固 `docker run` 隔离命令——非 root、cap-drop、只读 rootfs、资源限制 | JSON + 退出码 |
 
 ## 安全模型
 

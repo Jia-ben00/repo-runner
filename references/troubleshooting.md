@@ -9,6 +9,7 @@
 4. 网络类
 5. 权限类
 6. 环境/系统类
+7. Docker 隔离类（v0.2）
 
 ---
 
@@ -78,6 +79,17 @@
 | WSL 与 Windows 文件权限互相干扰 | 跨文件系统 | 仓库放 WSL 侧（`~/projects`）而非 `/mnt/c/...` |
 | 项目要 GPU/CUDA 但本机没有 | 硬件限制 | 如实报告：能装依赖但无法满足算力需求；建议换 CPU 模式或远端 |
 | `fatal: not a git repository` | 目录不是 git 仓库 | 确认克隆路径/浅克隆目录正确 |
+
+## 7. Docker 隔离类（v0.2）
+
+| 症状 | 原因 | 修复 |
+|---|---|---|
+| `docker_sandbox.py` 退出 1：`docker not found` | 本机未装 docker | 装 Docker（Desktop/Engine）后重试；或按用户决策降级（跳过该步/非隔离运行）。如实报告，不假装隔离 |
+| `daemon reachable: no` | docker 装了但引擎未启动 | 启动 Docker Desktop / 服务后重试；`docker info` 验证 |
+| 容器内 `command not found: setpriv` | 极简镜像（如 alpine）无 util-linux | 脚本已有 `su nobody` 兜底；若仍失败，改用 debian 系镜像（`--image node:22-slim` 等） |
+| 镜像拉取超时/失败 | 网络或 registry 抖动 | 配置 registry 镜像（见 stack-recipes 国内镜像节）；重试 |
+| 容器内安装报权限/只读错误 | rootfs 只读 + 写区受限 | 确认安装命令写 `/app` 或 `/tmp`（HOME 已指到 /tmp）；不要去掉 `--read-only`（那正是隔离的意义） |
+| 隔离运行完留了容器/卷 | `--rm` 只清容器，命名卷残留 | 用输出里的 cleanup 命令：`docker rm -f <name> && docker volume rm <name>-vol` |
 
 ## 兜底流程
 
