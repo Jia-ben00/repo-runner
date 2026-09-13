@@ -1,0 +1,7 @@
+# Normalize line endings across platforms
+* text=auto
+
+# Scripts keep LF so shebangs work on Unix
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
