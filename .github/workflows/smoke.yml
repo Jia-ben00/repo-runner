@@ -98,6 +98,7 @@ jobs:
           # clean: .env.example only, normal scripts, registry deps, COPY not ADD
           printf 'AWS_KEY=your-key-here\n' > /tmp/fix/clean_supply/.env.example
           printf '{"name":"clean","scripts":{"start":"node index.js"},"dependencies":{"express":"^4.18.0"}}\n' > /tmp/fix/clean_supply/package.json
+          printf '{"lockfileVersion":3}\n' > /tmp/fix/clean_supply/package-lock.json
           printf 'FROM node:22\nCOPY . /app\n' > /tmp/fix/clean_supply/Dockerfile
           printf 'requests==2.31.0\n' > /tmp/fix/clean_supply/requirements.txt
 
@@ -287,7 +288,7 @@ jobs:
             cmd: "python app.py && id -u"
           - stack: golang
             image: golang:1.24-bookworm
-            cmd: "go run main.go && id -u"
+            cmd: "go build -o main main.go && ./main && id -u"
     steps:
       - uses: actions/checkout@v7
 
