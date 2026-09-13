@@ -21,14 +21,16 @@ import os
 import re
 import sys
 
+# All-lowercase: iter_target_files lowercases the relative path before matching.
 TARGET_FILES = (
-    "package.json", "Makefile", "Dockerfile", "install.sh", "setup.sh",
+    "package.json", "makefile", "dockerfile", "install.sh", "setup.sh",
     "bootstrap.sh", "devcontainer.json", "docker-compose.yml",
-    "docker-compose.yaml", "compose.yaml", "compose.yml", "Gemfile",
-    "composer.json", "build.gradle", "build.gradle.kts", "BUILD", "BUILD.bazel",
-    "justfile", "Taskfile.yml", "Taskfile.yaml", "go.mod", "requirements.txt",
-    "pyproject.toml", ".travis.yml", "app.json", "Procfile", "deno.json",
-    "deno.jsonc", "bunfig.toml", ".npmrc", ".yarnrc.yml", "Cargo.toml",
+    "docker-compose.yaml", "compose.yaml", "compose.yml", "gemfile",
+    "composer.json", "build.gradle", "build.gradle.kts", "build", "build.bazel",
+    "justfile", "taskfile.yml", "taskfile.yaml", "go.mod", "requirements.txt",
+    "pyproject.toml", ".travis.yml", "app.json", "procfile", "deno.json",
+    "deno.jsonc", "bunfig.toml", ".npmrc", ".yarnrc.yml", "cargo.toml",
+    "build.rs",
 )
 TARGET_EXTS = (".sh", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".php")
 WORKFLOW_GLOB = os.path.join("**", ".github", "workflows", "*.yml")
@@ -127,7 +129,19 @@ PATTERNS = [
     ("curl-post-external", "medium",
      r"(?:curl|wget)\s+-X\s+POST|curl\s+-d\b",
      "posts data to a remote endpoint during setup"),
+    # --- docker build-time fetch ---
+    ("docker-add-remote", "high",
+     r"^\s*ADD\s+https?://",
+     "Dockerfile ADD fetches remote content at build time"),
 ]
+
+# npm script names that run automatically during `npm install`.
+NPM_LIFECYCLE_SCRIPTS = ("preinstall", "install", "postinstall", "prepare",
+                         "prepublish", "prepublishOnly", "prepack")
+
+# .env files that are safe to commit (examples / templates).
+SAFE_ENV_NAMES = (".env.example", ".env.sample", ".env.template",
+                  ".env.dist", ".env.defaults", ".env.schema")
 
 # Informational observations that lower risk but still worth reporting.
 INFO_PATTERNS = [
@@ -201,6 +215,13 @@ def scan_package_scripts(root, findings):
     for name, cmd in scripts.items():
         if not isinstance(cmd, str):
             continue
+        if name in NPM_LIFECYCLE_SCRIPTS:
+            findings.append({
+                "severity": "medium", "file": "package.json", "line": 0,
+                "pattern": "npm-lifecycle-script",
+                "detail": "npm auto-executes '%s' during install — review its contents" % name,
+                "evidence": (name + ": " + cmd)[:160],
+            })
         for key, sev, regex, detail in PATTERNS:
             if re.search(regex, cmd, re.IGNORECASE):
                 findings.append({
@@ -242,6 +263,62 @@ def scan_hooks(root, findings):
                     break
 
 
+def scan_committed_env(root, findings):
+    """Flag .env / .env.local etc. committed to the repo (secrets leak risk).
+
+    .env.example / .sample / .template / .dist are explicitly safe and skipped.
+    """
+    skip_dirs = (".git", "node_modules", ".venv", "venv", "env",
+                 "__pycache__", "dist", "build", ".next", ".cache")
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+        for name in filenames:
+            if name == ".env" or (name.startswith(".env.") and name not in SAFE_ENV_NAMES):
+                rel = os.path.relpath(os.path.join(dirpath, name), root)
+                findings.append({
+                    "severity": "high", "file": rel, "line": 0,
+                    "pattern": "committed-env",
+                    "detail": "secrets file committed to the repo — should be gitignored",
+                    "evidence": name,
+                })
+
+
+def scan_dependency_sources(root, findings):
+    """Flag dependencies installed from git / local paths instead of a registry."""
+    pkg = os.path.join(root, "package.json")
+    if os.path.exists(pkg):
+        try:
+            with open(pkg, "r", encoding="utf-8-sig", errors="replace") as fh:
+                data = json.load(fh)
+        except Exception:
+            data = None
+        if data:
+            for section in ("dependencies", "devDependencies"):
+                for name, ver in (data.get(section) or {}).items():
+                    if isinstance(ver, str) and re.match(r"^(git\+|github:|file:|git:|ssh:)", ver):
+                        findings.append({
+                            "severity": "medium", "file": "package.json", "line": 0,
+                            "pattern": "git-or-local-dependency",
+                            "detail": "%s dependency '%s' points to a git/local source (unpinned)" % (section, name),
+                            "evidence": "%s: %s" % (name, ver),
+                        })
+    req = os.path.join(root, "requirements.txt")
+    if os.path.exists(req):
+        try:
+            with open(req, "r", encoding="utf-8-sig", errors="replace") as fh:
+                for lineno, line in enumerate(fh, 1):
+                    s = line.strip()
+                    if s.startswith("git+") or s.startswith("-e git+"):
+                        findings.append({
+                            "severity": "medium", "file": "requirements.txt", "line": lineno,
+                            "pattern": "git-or-local-dependency",
+                            "detail": "pip dependency installed from git (unpinned)",
+                            "evidence": s[:160],
+                        })
+        except OSError:
+            pass
+
+
 def severity_of(findings):
     if not findings:
         return "low"
@@ -270,6 +347,8 @@ def main():
         findings.extend(scan_file(root, rel))
     scan_package_scripts(root, findings)
     scan_hooks(root, findings)
+    scan_committed_env(root, findings)
+    scan_dependency_sources(root, findings)
     dedup = {}
     line_keys = {(f["file"], f["pattern"]) for f in findings if f["line"]}
     for f in findings:
