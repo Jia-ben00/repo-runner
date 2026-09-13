@@ -32,7 +32,9 @@ TARGET_FILES = (
 )
 TARGET_EXTS = (".sh", ".ps1", ".bat", ".cmd", ".py", ".rb", ".pl", ".php")
 WORKFLOW_GLOB = os.path.join("**", ".github", "workflows", "*.yml")
-GIT_HOOK_DIRS = (".git/hooks", ".husky", "husky")
+# Only repo-committed hook dirs. `.git/hooks` is local git state (sample files
+# are created by git clone itself) - scanning it produces false positives.
+GIT_HOOK_DIRS = (".husky", "husky", ".githooks", "githooks")
 
 # (key, severity, regex, detail template)
 # Each regex must match the *whole dangerous fragment* so line evidence is useful.
