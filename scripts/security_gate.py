@@ -169,7 +169,9 @@ def iter_target_files(root):
 def scan_file(root, rel):
     path = os.path.join(root, rel)
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        # utf-8-sig: strip a UTF-8 BOM, otherwise json.load on package.json
+        # would fail and the whole script scan would be silently skipped.
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
             lines = fh.readlines()
     except OSError:
         return []
@@ -191,7 +193,7 @@ def scan_package_scripts(root, findings):
     if not os.path.exists(pkg):
         return
     try:
-        with open(pkg, "r", encoding="utf-8", errors="replace") as fh:
+        with open(pkg, "r", encoding="utf-8-sig", errors="replace") as fh:
             data = json.load(fh)
     except Exception:
         return
@@ -226,7 +228,7 @@ def scan_hooks(root, findings):
         for name in os.listdir(dpath):
             p = os.path.join(dpath, name)
             try:
-                with open(p, "r", encoding="utf-8", errors="replace") as fh:
+                with open(p, "r", encoding="utf-8-sig", errors="replace") as fh:
                     text = fh.read(4000)
             except OSError:
                 continue

@@ -25,7 +25,7 @@ def has_any(path, names):
 
 def read_json(path):
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
             return json.load(fh)
     except Exception:
         return None
@@ -33,7 +33,7 @@ def read_json(path):
 
 def read_text(path, limit=4000):
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
             return fh.read(limit)
     except Exception:
         return ""

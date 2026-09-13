@@ -4,6 +4,8 @@
 
 ### Run any GitHub repo. Safely. — an Agent Skill (SKILL.md)
 
+[![smoke](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml/badge.svg)](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml)
+
 Take any repository — a GitHub URL or a local folder — from *just cloned* to *actually running*: stack detection, supply-chain security gate, environment prep, lockfile-first install, service startup, health check, and a reproducible run report.
 
 **Zero external dependencies. No API keys. No daemons. Pure Python stdlib scripts + one SKILL.md.**

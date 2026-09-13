@@ -4,6 +4,8 @@
 
 ### 安全跑通任意 GitHub 仓库 —— 一个 Agent Skill（SKILL.md）
 
+[![smoke](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml/badge.svg)](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml)
+
 把任意仓库（GitHub 链接或本地目录）从"刚克隆完"带到"真正跑起来"：技术栈探测 → 供应链安全门 → 环境准备 → 锁文件优先安装 → 启动服务 → 健康检查，并输出可复现的运行报告。
 
 **零外部依赖、无需 API Key、无常驻服务。纯 Python 标准库脚本 + 一个 SKILL.md。**
