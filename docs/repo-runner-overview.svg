@@ -7,64 +7,58 @@
 
   <!-- Title -->
   <text x="560" y="38" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="24" font-weight="bold" fill="#1f2328" text-anchor="middle">repo-runner — Run any GitHub repo. Safely.</text>
-  <text x="560" y="64" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" fill="#57606a" text-anchor="middle">安全跑通任意 GitHub 仓库 · 5 阶段工作流</text>
+  <text x="560" y="62" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" fill="#57606a" text-anchor="middle">An Agent Skill (SKILL.md) · 5-stage workflow</text>
 
   <!-- Input -->
-  <rect x="40" y="220" width="170" height="60" rx="10" fill="#eef6ff" stroke="#0969da" stroke-width="1.5"/>
-  <text x="125" y="246" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="#1f2328" text-anchor="middle">Any repo / folder</text>
-  <text x="125" y="268" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="middle">任意仓库 / 本地目录</text>
-  <line x1="210" y1="250" x2="149" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="40" y="220" width="200" height="60" rx="10" fill="#eef6ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="140" y="256" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="#1f2328" text-anchor="middle">Any GitHub repo / folder</text>
+  <line x1="240" y1="250" x2="149" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Stage 1 -->
   <rect x="149" y="210" width="150" height="96" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
   <circle cx="169" cy="234" r="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
   <text x="169" y="239" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="middle">1</text>
-  <text x="224" y="260" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Detect</text>
-  <text x="224" y="284" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#57606a" text-anchor="middle">探测</text>
+  <text x="224" y="272" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Detect</text>
   <line x1="299" y1="250" x2="317" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Stage 2: Security Gate -->
   <rect x="317" y="210" width="150" height="96" rx="10" fill="#fff5f5" stroke="#cf222e" stroke-width="2"/>
   <circle cx="337" cy="234" r="12" fill="#ffffff" stroke="#cf222e" stroke-width="1.5"/>
   <text x="337" y="239" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#cf222e" text-anchor="middle">2</text>
-  <text x="392" y="260" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#cf222e" text-anchor="middle">Security Gate</text>
-  <text x="392" y="284" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#cf222e" text-anchor="middle">安全门 · 分级放行</text>
+  <text x="392" y="272" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#cf222e" text-anchor="middle">Security Gate</text>
   <line x1="467" y1="250" x2="485" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Stage 3 -->
   <rect x="485" y="210" width="150" height="96" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
   <circle cx="505" cy="234" r="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
   <text x="505" y="239" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="middle">3</text>
-  <text x="560" y="260" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Prepare</text>
-  <text x="560" y="284" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#57606a" text-anchor="middle">环境准备</text>
+  <text x="560" y="272" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Prepare</text>
   <line x1="635" y1="250" x2="653" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Stage 4 -->
   <rect x="653" y="210" width="150" height="96" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
   <circle cx="673" cy="234" r="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
   <text x="673" y="239" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="middle">4</text>
-  <text x="728" y="260" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Install</text>
-  <text x="728" y="284" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#57606a" text-anchor="middle">安装依赖</text>
+  <text x="728" y="272" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Install</text>
   <line x1="803" y1="250" x2="821" y2="250" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Stage 5 -->
   <rect x="821" y="210" width="150" height="96" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1.5"/>
   <circle cx="841" cy="234" r="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
   <text x="841" y="239" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="middle">5</text>
-  <text x="896" y="260" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Run &amp; Verify</text>
-  <text x="896" y="284" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#57606a" text-anchor="middle">运行 · 验证</text>
+  <text x="896" y="272" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#1f2328" text-anchor="middle">Run &amp; Verify</text>
 
   <!-- Gate callout -->
   <line x1="392" y1="306" x2="392" y2="334" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="4 3"/>
-  <text x="392" y="356" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#cf222e" text-anchor="middle">high / critical → 停下询问 · Stop &amp; ask</text>
-  <text x="392" y="374" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#cf222e" text-anchor="middle">绝不自动执行 · never auto-run</text>
+  <text x="392" y="356" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#cf222e" text-anchor="middle">high / critical → stop &amp; ask</text>
+  <text x="392" y="374" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#cf222e" text-anchor="middle">never auto-run</text>
 
   <!-- Output -->
   <line x1="896" y1="306" x2="896" y2="384" stroke="#57606a" stroke-width="1.5" marker-end="url(#arrow)"/>
   <rect x="746" y="388" width="300" height="60" rx="10" fill="#e6ffed" stroke="#2da44e" stroke-width="1.5"/>
-  <text x="896" y="414" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1a7f37" text-anchor="middle">可复现报告 · Reproducible Report</text>
-  <text x="896" y="436" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" fill="#57606a" text-anchor="middle">端口 · URL · 复现命令 · ports · URL · one-liner</text>
+  <text x="896" y="414" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1a7f37" text-anchor="middle">Reproducible Report</text>
+  <text x="896" y="436" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" fill="#57606a" text-anchor="middle">ports · URL · one-liner to re-run</text>
 
   <!-- Footer -->
-  <text x="560" y="482" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#6e7781" text-anchor="middle">示意图 · 5 阶段工作流（简化） · simplified overview of the 5-stage workflow</text>
+  <text x="560" y="482" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#6e7781" text-anchor="middle">Simplified overview of the 5-stage workflow</text>
 </svg>
