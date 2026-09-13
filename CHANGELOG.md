@@ -2,6 +2,25 @@
 
 All notable changes to repo-runner are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and versioning is [Semantic Versioning](https://semver.org/).
 
+## [v0.3.0] - 2026-09-13
+
+### Added
+
+- `security_gate.py` — four new supply-chain rules:
+  - `committed-env` (high): `.env` / `.env.local` etc. committed to the repo (`.env.example` / `.sample` / `.template` / `.dist` are explicitly safe).
+  - `npm-lifecycle-script` (medium): `preinstall` / `install` / `postinstall` / `prepare` / `prepublish` scripts that npm auto-executes during install.
+  - `docker-add-remote` (high): Dockerfile `ADD https://...` fetching remote content at build time.
+  - `git-or-local-dependency` (medium): `package.json` dependencies pointing to `git+` / `github:` / `file:` / `ssh:` sources, or `requirements.txt` lines starting with `git+`.
+- `security_gate.py` — `build.rs` added to target files (Rust build scripts execute at compile time).
+- CI — `security_gate` supply-chain expansion step with `evil_supply` / `clean_supply` fixtures asserting all four new rules fire and none false-positive.
+- CI — `docker-smoke` expanded from node-only to a **three-stack matrix**: `node:22-slim`, `python:3.12-slim`, `golang:1.24-bookworm`, each asserting the app runs as uid 65534 inside the hardened container.
+- README (EN + zh-CN) — "Example" section with real `security_gate` JSON output and the final reproducible report format.
+
+### Fixed
+
+- **Critical**: `security_gate.py` `TARGET_FILES` contained capitalized names (`Dockerfile`, `Makefile`, `Gemfile`, `Cargo.toml`, `BUILD`) while `iter_target_files` lowercased the path before matching — these files were **never scanned** since v0.1.0. `TARGET_FILES` is now all-lowercase. Discovered while adding the `docker-add-remote` rule.
+- CI golang fixture: `go run` placed the compiled binary on tmpfs (`/tmp`), which can be `noexec`; changed to `go build -o main main.go && ./main` (compiles into the named volume).
+
 ## [v0.2.0] - 2026-09-13
 
 ### Added
