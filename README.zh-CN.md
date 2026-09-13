@@ -97,6 +97,10 @@ skill 会依次：
 | Codex / Cursor / OpenClaw | 把文件夹复制到代理的 skills 目录 |
 | 任何 SKILL.md 加载器 | 复制文件夹，重启 |
 
+## 文章 / Articles
+
+- [Your AI Agent Should Never Run a Random GitHub Repo Blindly](docs/blog-intro.md)（英文）— 供应链风险、5 阶段工作流，以及 v0.2 的 SBOM + Docker 沙箱是怎么在 CI 里迭代出来的。
+
 ## 许可
 
 [MIT](LICENSE)

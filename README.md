@@ -97,6 +97,10 @@ The skill then:
 | Codex / Cursor / OpenClaw | copy folder to the agent's skills directory |
 | Any SKILL.md loader | copy folder, reload |
 
+## Articles
+
+- [Your AI Agent Should Never Run a Random GitHub Repo Blindly](docs/blog-intro.md) — the supply-chain problem, the 5-stage pipeline, and how v0.2's SBOM + Docker sandbox came together (including three CI-discovered bugs in the isolation layer).
+
 ## License
 
 [MIT](LICENSE)
