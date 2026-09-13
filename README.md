@@ -143,6 +143,31 @@ Repro: git clone --depth 1 <url> && cd <dir> && npm ci && node index.js
 
 Findings appear under **Security → Code scanning** and as inline PR annotations. Severity maps `critical`/`high` → error, `medium` → warning, `low`/`info` → note. This repo's own CI uploads a sample on every push to `main`.
 
+## GitHub Action
+
+repo-runner is also available as a standalone **GitHub Action** — no agent required. Scan any repo URL or local path in CI:
+
+```yaml
+- uses: Jia-ben00/repo-runner@v0.5.0
+  with:
+    target: https://github.com/owner/repo   # or a local path like "."
+    fail-on: high                              # low | medium | high
+    upload-sarif: true                         # auto-upload to code scanning
+```
+
+**Inputs:**
+
+| Input | Default | Description |
+|---|---|---|
+| `target` | (required) | Repo URL (`https://…`) or local path |
+| `sarif-output` | `security_gate.sarif` | SARIF output file path |
+| `fail-on` | `high` | Fail the job when risk ≥ this level |
+| `upload-sarif` | `true` | Auto-upload SARIF to GitHub code scanning |
+
+**Outputs:** `risk-level` (`low`/`medium`/`high`/`critical`), `findings` (count).
+
+The action clones remote repos with `--depth 1`, runs the same security gate as the skill, and can block the pipeline on high/critical findings.
+
 ## Compatibility
 
 | Agent | Install |

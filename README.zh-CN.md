@@ -143,6 +143,31 @@ SBOM: 187 components → sbom.json (CycloneDX 1.5)
 
 告警出现在 **Security → Code scanning** 页面和 PR 内联注释中。严重级映射：`critical`/`high` → error，`medium` → warning，`low`/`info` → note。本仓库自身的 CI 每次 push 到 main 都会上传一份示例。
 
+## GitHub Action
+
+repo-runner 同时提供独立的 **GitHub Action**——不需要 AI 代理，直接在 CI 中扫描任意仓库 URL 或本地路径：
+
+```yaml
+- uses: Jia-ben00/repo-runner@v0.5.0
+  with:
+    target: https://github.com/owner/repo   # 或本地路径如 "."
+    fail-on: high                              # low | medium | high
+    upload-sarif: true                         # 自动上传到 code scanning
+```
+
+**输入参数：**
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `target` | （必填） | 仓库 URL（`https://…`）或本地路径 |
+| `sarif-output` | `security_gate.sarif` | SARIF 输出文件路径 |
+| `fail-on` | `high` | 风险等级达到此阈值时使 job 失败 |
+| `upload-sarif` | `true` | 自动上传 SARIF 到 GitHub code scanning |
+
+**输出：** `risk-level`（`low`/`medium`/`high`/`critical`）、`findings`（数量）。
+
+Action 用 `--depth 1` 克隆远程仓库，运行与 skill 相同的安全门，在 high/critical 时可直接阻断流水线。
+
 ## 兼容性
 
 | 代理 | 安装方式 |

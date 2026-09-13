@@ -2,6 +2,17 @@
 
 All notable changes to repo-runner are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and versioning is [Semantic Versioning](https://semver.org/).
 
+## [v0.5.0] - 2026-09-13
+
+### Added
+
+- **GitHub Action** (`action.yml`) — repo-runner is now usable as a standalone composite Action, no AI agent required. Scans any repo URL or local path in CI.
+  - Inputs: `target` (URL or path), `sarif-output`, `fail-on` (low/medium/high), `upload-sarif` (auto-upload to code scanning).
+  - Outputs: `risk-level`, `findings`.
+  - Clones remote repos with `--depth 1`; runs the same security gate as the skill; can block the pipeline on high/critical findings.
+- CI — `action-self-test` job: scans the repo itself (expects `low`) and an evil fixture (expects the action to fail), verifying both the pass and block paths.
+- README (EN + zh-CN) — "GitHub Action" section with usage example, inputs/outputs table.
+
 ## [v0.4.0] - 2026-09-13
 
 ### Added
