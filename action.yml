@@ -1,5 +1,5 @@
 name: 'repo-runner — Security Gate'
-description: 'Scan a repository (URL or local path) for supply-chain and malicious-pattern risks before running it. Outputs SARIF 2.1.0 for GitHub code scanning.'
+description: 'Supply-chain security gate for any repo — catches malicious install scripts, committed secrets, unsafe deps. Outputs SARIF.'
 author: 'Jia-ben00'
 branding:
   icon: 'shield'
