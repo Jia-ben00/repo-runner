@@ -1,6 +1,6 @@
 # Your AI Agent Should Never Run a Random GitHub Repo Blindly. Here's a Skill That Fixes That.
 
-*Cross-posted from the [repo-runner](https://github.com/Jia-ben00/repo-runner) project. Install with `npx skills add Jia-ben00/repo-runner`.*
+*Cross-posted from the [repo-runner](https://github.com/Jia-ben00/repo-runner) project. Now available as both an **AI Agent Skill** and a **GitHub Action**. Install with `npx skills add Jia-ben00/repo-runner` or `uses: Jia-ben00/repo-runner@v0.5.0`.*
 
 ---
 
@@ -33,17 +33,26 @@ Every stage has a defined contract. The agent never improvises past a `high` or 
 
 ## Stage 2 is the differentiator: a security gate with evidence
 
-The bundled `security_gate.py` scans every install/start surface — `package.json` scripts, `Makefile` targets, `Dockerfile` `RUN` instructions, GitHub Actions, husky hooks, devcontainer `postCreateCommand` — and looks for:
+The bundled `security_gate.py` scans every install/start surface — `package.json` scripts, `Makefile` targets, `Dockerfile` `RUN` instructions, GitHub Actions, husky hooks, devcontainer `postCreateCommand`, `build.rs`, and more — and looks for:
 
 - Remote code execution (`curl | bash`, `wget | sh`, `Invoke-Expression`)
 - Reverse shells (`nc -e`, `bash -i >& /dev/tcp/...`)
 - Secret exfiltration (`.env` uploads, `curl` to paste sites)
 - Privilege escalation and destructive commands
 - Obfuscation (base64/hex payloads, string-spliced commands)
+- **Committed `.env` files** (high — secrets should never be tracked)
+- **npm lifecycle scripts** (`preinstall`/`postinstall`/`prepare` — auto-executed on install)
+- **Dockerfile `ADD https://...`** (build-time remote fetch)
+- **Git/local dependencies** (unpinned, mutable sources)
 
 Each finding comes back with **file, line, and the matched evidence**. Verdicts are `low / medium / high / critical` with exit codes `0 / 1 / 2` — and `high` or `critical` means **stop and ask the user**. Nothing auto-runs past the gate.
 
-We caught a real bug during development: the gate initially flagged `.git/hooks/*.sample` — files that `git clone` itself creates — as high risk. That would have meant *every* real repo triggered a false positive. Fixed by scanning only repo-committed hook directories (`.husky`, `.githooks`, etc.). The regression test is in CI.
+We caught two real bugs during development:
+
+1. The gate initially flagged `.git/hooks/*.sample` — files that `git clone` itself creates — as high risk. That would have meant *every* real repo triggered a false positive. Fixed by scanning only repo-committed hook directories (`.husky`, `.githooks`, etc.).
+2. **More seriously:** `TARGET_FILES` contained capitalized names (`Dockerfile`, `Makefile`, `Gemfile`, `Cargo.toml`) while the matcher lowercased paths before comparing — these files were **never scanned** since v0.1.0. Discovered while adding the Dockerfile `ADD` rule. Now all-lowercase, with a CI regression test.
+
+Both bugs are fixed and covered by CI.
 
 ## v0.2: SBOM output + hardened Docker sandbox
 
@@ -66,17 +75,48 @@ Nothing in the install or start lifecycle ever runs as root. The port (if any) b
 
 > **Engineering note:** getting this right took three CI iterations. `chown` fails under `--cap-drop ALL` (no CAP_CHOWN). `cp -a` fails too (it preserves ownership → also chowns). And a runtime `setpriv`/`su` drop is impossible because CAP_SETUID is also dropped. The solution: start the app container as the target uid directly. The full writeup is in the [CHANGELOG](https://github.com/Jia-ben00/repo-runner/blob/main/CHANGELOG.md).
 
+## v0.3–v0.5: from agent skill to CI-native security tool
+
+Three releases turned repo-runner from a clever agent skill into a CI-native security control:
+
+### v0.3: Security gate expansion + multi-stack CI
+
+Four new supply-chain rules (committed `.env`, npm lifecycle scripts, Dockerfile `ADD` remote, git/local dependencies), plus the critical `TARGET_FILES` case-sensitivity fix. Docker smoke tests expanded from node-only to a **three-stack matrix** — node, python, and golang — each proving the app runs as uid 65534 inside the hardened container.
+
+### v0.4: SARIF output + GitHub Code Scanning
+
+`security_gate.py --sarif` emits [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the OASIS standard for static analysis. CI uploads the SARIF file on every push, and findings appear natively under **Security → Code scanning** and as inline PR annotations. No extra tools, no dashboards — it's the same interface your team already uses for CodeQL.
+
+The repo currently has **6 live code-scanning alerts** from the test fixture, proving the end-to-end integration works.
+
+### v0.5: Standalone GitHub Action
+
+The biggest shift: repo-runner is now a **composite GitHub Action**. You don't need an AI agent to use it — drop it into any workflow:
+
+```yaml
+- uses: Jia-ben00/repo-runner@v0.5.0
+  with:
+    target: https://github.com/owner/repo
+    fail-on: high
+    upload-sarif: true
+```
+
+It clones the repo with `--depth 1`, runs the same security gate, and can **fail the pipeline** on high/critical findings. This opens repo-runner to every team using GitHub Actions, not just agent early adopters.
+
 ## It's verified, not just claimed
 
-CI runs three jobs on every push:
+CI runs **six jobs** on every push:
 
-- **Script fixtures** — stack detection (including a UTF-8 BOM edge case), malicious vs. clean security-gate assertions, a real-repo regression (`socketio/chat-example`), health-check live/dead ports, SBOM parser tests, and sandbox command-build assertions.
+- **Script fixtures** — stack detection (including a UTF-8 BOM edge case), malicious vs. clean security-gate assertions, supply-chain expansion rules, a real-repo regression (`socketio/chat-example`), health-check live/dead ports, SBOM parser tests, and sandbox command-build assertions.
 - **Install** — the exact README command `npx skills add Jia-ben00/repo-runner` runs end-to-end.
-- **Docker smoke** — a real node fixture executes inside the hardened container and asserts the app ran as uid 65534.
+- **Docker smoke (×3)** — real node, python, and golang fixtures each execute inside the hardened container and assert the app ran as uid 65534.
+- **Action self-test** — the GitHub Action scans both a clean fixture (expects `low`) and an evil fixture (expects the action to fail with `critical`).
 
 All green. [See the Actions page.](https://github.com/Jia-ben00/repo-runner/actions)
 
 ## Try it
+
+**As an agent skill:**
 
 ```bash
 npx skills add Jia-ben00/repo-runner
@@ -84,12 +124,21 @@ npx skills add Jia-ben00/repo-runner
 
 Then tell your agent: *"Clone and run https://github.com/some/repo safely."* The skill triggers on phrases like *run this repo, get this project running, clone and install, reproduce this project, set up this codebase*.
 
-It works with Claude Code, Codex, Cursor, and any agent that loads skills folders. MIT licensed.
+**As a GitHub Action (no agent required):**
+
+```yaml
+- uses: Jia-ben00/repo-runner@v0.5.0
+  with:
+    target: .
+    fail-on: high
+```
+
+It works with Claude Code, Codex, Cursor, and any agent that loads skills folders — or any GitHub Actions workflow. MIT licensed.
 
 ## Links
 
 - Repository: https://github.com/Jia-ben00/repo-runner
-- Latest release: [v0.2.0](https://github.com/Jia-ben00/repo-runner/releases/tag/v0.2.0)
+- Latest release: [v0.5.0](https://github.com/Jia-ben00/repo-runner/releases/tag/v0.5.0)
 - Overview diagram: [5-stage pipeline](https://github.com/Jia-ben00/repo-runner/blob/main/docs/repo-runner-overview.svg)
 - Chinese README: [README.zh-CN.md](https://github.com/Jia-ben00/repo-runner/blob/main/README.zh-CN.md)
 
