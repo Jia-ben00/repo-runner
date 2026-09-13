@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   scripts:
     name: Scripts smoke test
@@ -123,6 +127,24 @@ jobs:
               assert not any(f['pattern'] == pat for f in d['findings']), (pat, d)
           print('security_gate: no false positives on clean fixture (.env.example safe)')
           PY
+
+          # Generate SARIF 2.1.0 for code scanning upload (evil fixture has findings)
+          python scripts/security_gate.py --sarif /tmp/fix/evil_supply > /tmp/security_gate.sarif || true
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/security_gate.sarif'))
+          assert d['version'] == '2.1.0'
+          assert d['runs'][0]['results'], 'expected SARIF results'
+          print('SARIF 2.1.0 generated: %d results, %d rules' % (
+              len(d['runs'][0]['results']), len(d['runs'][0]['tool']['driver']['rules'])))
+          PY
+
+      - name: Upload SARIF to GitHub code scanning
+        if: github.event_name == 'push'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: /tmp/security_gate.sarif
+          category: repo-runner-security-gate
 
       - name: real repo regression — socketio/chat-example, no .git/hooks false positives
         run: |

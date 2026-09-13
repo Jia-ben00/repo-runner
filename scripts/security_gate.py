@@ -332,11 +332,118 @@ def severity_of(findings):
     return "low"
 
 
+# --- SARIF 2.1.0 output (for GitHub code scanning) ---
+
+VERSION = "0.4.0"
+SARIF_LEVEL = {"critical": "error", "high": "error", "medium": "warning",
+               "low": "note", "info": "note"}
+
+# Metadata for rules that are not simple PATTERNS entries.
+# key: pattern id -> (rule name, short description, full description)
+RULE_INFO = {
+    "committed-env": (
+        "CommittedEnvFile",
+        "Secrets file (.env) committed to repository",
+        "A .env or .env.local file that may contain secrets is committed to the "
+        "repo. It should be gitignored; only .env.example should be tracked.",
+    ),
+    "npm-lifecycle-script": (
+        "NpmLifecycleScript",
+        "npm auto-executing lifecycle script",
+        "An npm lifecycle script (preinstall/install/postinstall/prepare) runs "
+        "automatically during npm install. Review its contents before installing.",
+    ),
+    "docker-add-remote": (
+        "DockerAddRemote",
+        "Dockerfile ADD fetches remote content at build time",
+        "Dockerfile ADD with a remote URL fetches and may execute content at "
+        "build time. Prefer COPY with locally-vetted files.",
+    ),
+    "git-or-local-dependency": (
+        "GitOrLocalDependency",
+        "Dependency installed from git or local path",
+        "A dependency is installed from a git URL or local path instead of a "
+        "registry, so its version is unpinned and its contents can change.",
+    ),
+    "no-lockfile": (
+        "NoLockfile",
+        "No lockfile found",
+        "No lockfile was found — dependency versions are unpinned and could "
+        "change between installs.",
+    ),
+}
+
+
+def _rule_name(pattern):
+    return "".join(w.capitalize() for w in pattern.split("-"))
+
+
+def to_sarif(findings, root):
+    """Convert findings to SARIF 2.1.0 for GitHub code scanning upload."""
+    rules = []
+    seen = set()
+    results = []
+    for f in findings:
+        pat = f["pattern"]
+        if pat not in seen:
+            seen.add(pat)
+            if pat in RULE_INFO:
+                name, short, full = RULE_INFO[pat]
+            else:
+                match = next((p for p in PATTERNS if p[0] == pat), None)
+                name = _rule_name(pat)
+                short = match[3] if match else pat
+                full = short
+            rules.append({
+                "id": pat,
+                "name": name,
+                "shortDescription": {"text": short},
+                "fullDescription": {"text": full},
+                "defaultConfiguration": {"level": SARIF_LEVEL.get(f["severity"], "warning")},
+                "helpUri": "https://github.com/Jia-ben00/repo-runner#security-gate",
+            })
+        phys = {
+            "artifactLocation": {"uri": f["file"], "uriBaseId": "%SRCROOT%"},
+        }
+        if f.get("line"):
+            phys["region"] = {"startLine": f["line"]}
+        msg = f["detail"]
+        if f.get("evidence"):
+            msg += " — evidence: " + f["evidence"]
+        results.append({
+            "ruleId": pat,
+            "level": SARIF_LEVEL.get(f["severity"], "warning"),
+            "message": {"text": msg},
+            "locations": [{"physicalLocation": phys}],
+        })
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "repo-runner security_gate",
+                    "version": VERSION,
+                    "informationUri": "https://github.com/Jia-ben00/repo-runner",
+                    "rules": rules,
+                },
+            },
+            "originalUriBaseIds": {"SRCROOT": {"uri": "file://" + root + "/"}},
+            "results": results,
+        }],
+    }
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("usage: security_gate.py <directory>", file=sys.stderr)
+    args = sys.argv[1:]
+    sarif = False
+    if "--sarif" in args:
+        sarif = True
+        args.remove("--sarif")
+    if len(args) < 1:
+        print("usage: security_gate.py [--sarif] <directory>", file=sys.stderr)
         sys.exit(1)
-    root = os.path.abspath(sys.argv[1])
+    root = os.path.abspath(args[0])
     if not os.path.isdir(root):
         print(json.dumps({"error": "directory not found: " + root}))
         sys.exit(2)
@@ -359,11 +466,14 @@ def main():
             dedup[key] = f
     findings = sorted(dedup.values(), key=lambda f: -SEVERITY_ORDER[f["severity"]])
     level = severity_of(findings)
-    print(json.dumps({
-        "risk_level": level,
-        "findings": findings,
-        "scan_summary": {"files_scanned": scanned, "matched": len(findings)},
-    }, ensure_ascii=False, indent=2))
+    if sarif:
+        print(json.dumps(to_sarif(findings, root), ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps({
+            "risk_level": level,
+            "findings": findings,
+            "scan_summary": {"files_scanned": scanned, "matched": len(findings)},
+        }, ensure_ascii=False, indent=2))
     sys.exit(0 if level == "low" else 1 if level == "medium" else 2)
 
 
