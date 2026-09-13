@@ -5,6 +5,8 @@
 ### Run any GitHub repo. Safely. — an Agent Skill (SKILL.md)
 
 [![smoke](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml/badge.svg)](https://github.com/Jia-ben00/repo-runner/actions/workflows/smoke.yml)
+[![stars](https://img.shields.io/github/stars/Jia-ben00/repo-runner)](https://github.com/Jia-ben00/repo-runner/stargazers)
+[![license](https://img.shields.io/github/license/Jia-ben00/repo-runner)](https://github.com/Jia-ben00/repo-runner/blob/main/LICENSE)
 
 Take any repository — a GitHub URL or a local folder — from *just cloned* to *actually running*: stack detection, supply-chain security gate, environment prep, lockfile-first install, service startup, health check, and a reproducible run report.
 
