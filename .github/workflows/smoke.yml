@@ -251,7 +251,8 @@ jobs:
           printf 'console.log("sandbox-hello")\n' > /tmp/fix/sandbox_app/index.js
 
           python scripts/docker_sandbox.py --repo /tmp/fix/sandbox_app --image node:22-slim \
-            --cmd "node index.js && id -u" --exec > /tmp/sandbox_run.json
+            --cmd "node index.js && id -u" --exec > /tmp/sandbox_run.json \
+            || { echo "sandbox run failed:"; cat /tmp/sandbox_run.json; exit 1; }
           python - <<'PY'
           import json
           d = json.load(open('/tmp/sandbox_run.json'))

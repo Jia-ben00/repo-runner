@@ -12,6 +12,11 @@ All notable changes to repo-runner are documented here. The format follows [Keep
 - README (EN + zh-CN): SBOM and sandboxed-run feature bullets + two new rows in the scripts table.
 - `references/troubleshooting.md`: Docker isolation section (docker not found, daemon down, setpriv fallback, slow image pulls, read-only write errors, leftover volume cleanup).
 
+### Fixed
+
+- (v0.2 development) sbom parsers: version specifiers without a space (`fastapi>=0.100`), yarn v1 `version "x.y.z"` syntax, pnpm-lock.yaml being YAML (not TOML).
+- (v0.2 development) `docker_sandbox.py`: the copy step used `chown`, which fails with EPERM under `--cap-drop ALL` (container root has no CAP_CHOWN) — replaced with `chmod -R a+rwX`, keeping the dropped (nobody) user writable for installs. Windows repo paths are normalized to forward slashes for Docker volume syntax.
+
 ### CI
 
 - `sbom` fixture tests (npm lock + pyproject → CycloneDX structure/purl assertions).

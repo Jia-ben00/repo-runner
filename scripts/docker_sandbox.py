@@ -81,7 +81,7 @@ def build_command(repo_abs, image, name, port, cmd):
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--user", "0:0", "--read-only", "--tmpfs", "/tmp:rw,size=256m",
             "--env", "HOME=/tmp",
-            "--volume", repo_abs + ":/repo:ro",
+            "--volume", repo_abs.replace("\\", "/") + ":/repo:ro",
             "--volume", name + "-vol:/app",
             "--workdir", "/app"]
     if port:
@@ -91,18 +91,22 @@ def build_command(repo_abs, image, name, port, cmd):
 
     if cmd:
         quoted = shlex.quote(cmd)
-        inner = ("cp -a /repo/. /app/ 2>/dev/null && chown -R %s:%s /app && "
+        # NOTE: with --cap-drop ALL the container root has no CAP_CHOWN, so
+        # chown would fail with EPERM. The copy runs as uid 0 and the files
+        # end up owned by root; chmod by owner needs no capability, so the
+        # dropped (nobody) user can still write into /app during install.
+        inner = ("cp -a /repo/. /app/ 2>/dev/null && chmod -R a+rwX /app && "
                  "{ if command -v setpriv >/dev/null 2>&1; then "
                  "exec setpriv --reuid %s --regid %s --clear-groups sh -c %s; "
                  "else exec su nobody -s /bin/sh -c %s; fi; }"
-                 % (SANDBOX_UID, SANDBOX_UID, SANDBOX_UID, SANDBOX_UID, quoted, quoted))
+                 % (SANDBOX_UID, SANDBOX_UID, quoted, quoted))
     else:
         notes.append("no --cmd given — pass the install/start command to actually run inside the container")
-        inner = ("cp -a /repo/. /app/ 2>/dev/null && chown -R %s:%s /app && "
+        inner = ("cp -a /repo/. /app/ 2>/dev/null && chmod -R a+rwX /app && "
                  "{ if command -v setpriv >/dev/null 2>&1; then "
                  "exec setpriv --reuid %s --regid %s --clear-groups sh; "
                  "else exec su nobody -s /bin/sh; fi; }"
-                 % (SANDBOX_UID, SANDBOX_UID, SANDBOX_UID, SANDBOX_UID))
+                 % (SANDBOX_UID, SANDBOX_UID))
     argv += ["sh", "-c", inner]
     notes.append("cleanup: docker rm -f %s && docker volume rm %s-vol" % (name, name))
     return argv, hardening, notes
