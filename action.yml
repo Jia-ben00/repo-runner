@@ -1,0 +1,93 @@
+name: 'repo-runner — Security Gate'
+description: 'Scan a repository (URL or local path) for supply-chain and malicious-pattern risks before running it. Outputs SARIF 2.1.0 for GitHub code scanning.'
+author: 'Jia-ben00'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  target:
+    description: 'Repository URL (https://github.com/owner/repo) or local path to scan.'
+    required: true
+  sarif-output:
+    description: 'Path to write the SARIF 2.1.0 output file.'
+    required: false
+    default: 'security_gate.sarif'
+  fail-on:
+    description: 'Fail the action when risk level meets or exceeds this threshold: low, medium, high.'
+    required: false
+    default: 'high'
+  upload-sarif:
+    description: 'Automatically upload the SARIF file to GitHub code scanning (true/false).'
+    required: false
+    default: 'true'
+
+outputs:
+  risk-level:
+    description: 'Risk level: low, medium, high, critical.'
+  findings:
+    description: 'Total number of findings.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Run security gate
+      id: gate
+      shell: bash
+      env:
+        TARGET_INPUT: ${{ inputs.target }}
+        SARIF_OUTPUT: ${{ inputs.sarif-output }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -uxo pipefail
+
+        # Resolve target: clone if URL, otherwise use local path
+        if [[ "$TARGET_INPUT" =~ ^https?:// ]]; then
+          rm -rf /tmp/repo-runner-target
+          git clone --depth 1 "$TARGET_INPUT" /tmp/repo-runner-target
+          TARGET=/tmp/repo-runner-target
+        else
+          TARGET="$TARGET_INPUT"
+        fi
+
+        # Generate SARIF (never blocks — upload happens next)
+        set +e
+        python "$ACTION_PATH/scripts/security_gate.py" --sarif "$TARGET" > "$SARIF_OUTPUT"
+        set -e
+
+        # JSON run for risk level + exit code
+        set +e
+        python "$ACTION_PATH/scripts/security_gate.py" "$TARGET" > /tmp/repo-runner-gate.json
+        GATE_EXIT=$?
+        set -e
+
+        RISK=$(python -c "import json; print(json.load(open('/tmp/repo-runner-gate.json'))['risk_level'])")
+        COUNT=$(python -c "import json; print(len(json.load(open('/tmp/repo-runner-gate.json'))['findings']))")
+        echo "risk-level=$RISK" >> "$GITHUB_OUTPUT"
+        echo "findings=$COUNT" >> "$GITHUB_OUTPUT"
+        echo "Security gate: risk=$RISK findings=$COUNT exit=$GATE_EXIT"
+
+        # Threshold: low=0, medium=1, high=2
+        case "$FAIL_ON" in
+          low)     THRESHOLD=0 ;;
+          medium)  THRESHOLD=1 ;;
+          high|*)  THRESHOLD=2 ;;
+        esac
+
+        if [ "$GATE_EXIT" -ge "$THRESHOLD" ]; then
+          echo "::error::Security gate blocked: risk=$RISK (threshold: $FAIL_ON). Review findings in $SARIF_OUTPUT"
+          exit 1
+        fi
+
+    - name: Upload SARIF to code scanning
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-output }}
+        category: repo-runner

