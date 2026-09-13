@@ -92,17 +92,18 @@ def build_command(repo_abs, image, name, port, cmd):
     if cmd:
         quoted = shlex.quote(cmd)
         # NOTE: with --cap-drop ALL the container root has no CAP_CHOWN, so
-        # chown would fail with EPERM. The copy runs as uid 0 and the files
-        # end up owned by root; chmod by owner needs no capability, so the
-        # dropped (nobody) user can still write into /app during install.
-        inner = ("cp -a /repo/. /app/ 2>/dev/null && chmod -R a+rwX /app && "
+        # chown-based steps fail with EPERM. cp -R (not -a: -a preserves
+        # ownership and therefore attempts chown) copies as uid 0; the files
+        # end up owned by root, and chmod by owner needs no capability, so
+        # the dropped (nobody) user can still write into /app during install.
+        inner = ("cp -R /repo/. /app/ && chmod -R a+rwX /app && "
                  "{ if command -v setpriv >/dev/null 2>&1; then "
                  "exec setpriv --reuid %s --regid %s --clear-groups sh -c %s; "
                  "else exec su nobody -s /bin/sh -c %s; fi; }"
                  % (SANDBOX_UID, SANDBOX_UID, quoted, quoted))
     else:
         notes.append("no --cmd given — pass the install/start command to actually run inside the container")
-        inner = ("cp -a /repo/. /app/ 2>/dev/null && chmod -R a+rwX /app && "
+        inner = ("cp -R /repo/. /app/ && chmod -R a+rwX /app && "
                  "{ if command -v setpriv >/dev/null 2>&1; then "
                  "exec setpriv --reuid %s --regid %s --clear-groups sh; "
                  "else exec su nobody -s /bin/sh; fi; }"

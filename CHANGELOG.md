@@ -15,7 +15,7 @@ All notable changes to repo-runner are documented here. The format follows [Keep
 ### Fixed
 
 - (v0.2 development) sbom parsers: version specifiers without a space (`fastapi>=0.100`), yarn v1 `version "x.y.z"` syntax, pnpm-lock.yaml being YAML (not TOML).
-- (v0.2 development) `docker_sandbox.py`: the copy step used `chown`, which fails with EPERM under `--cap-drop ALL` (container root has no CAP_CHOWN) — replaced with `chmod -R a+rwX`, keeping the dropped (nobody) user writable for installs. Windows repo paths are normalized to forward slashes for Docker volume syntax.
+- (v0.2 development) `docker_sandbox.py`: the copy step used `chown`/`cp -a`, both of which fail with EPERM under `--cap-drop ALL` (container root has no CAP_CHOWN) — replaced with `cp -R` + `chmod -R a+rwX`, keeping the dropped (nobody) user writable for installs. Windows repo paths are normalized to forward slashes for Docker volume syntax.
 
 ### CI
 
