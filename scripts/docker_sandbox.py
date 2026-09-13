@@ -67,50 +67,50 @@ def docker_info():
     return (ver.stdout.strip() or ver.stderr.strip()), daemon, True
 
 
-def build_command(repo_abs, image, name, port, cmd):
+def build_commands(repo_abs, image, name, port, cmd):
     hardening = [
-        "non-root user (nobody, uid 65534) via setpriv after file copy",
-        "--cap-drop ALL and --security-opt no-new-privileges",
+        "app runs as nobody (uid 65534) via --user at container start — no setuid call",
+        "--cap-drop ALL and --security-opt no-new-privileges on both containers",
         "--read-only rootfs with tmpfs /tmp",
         "--memory %s and --cpus %s limits" % (MEMORY, CPUS),
         "repo bind-mounted read-only; installs write into an isolated named volume",
     ]
     notes = []
-    argv = ["docker", "run", "--rm", "--name", name, "--network", "bridge",
-            "--memory", MEMORY, "--cpus", CPUS,
-            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-            "--user", "0:0", "--read-only", "--tmpfs", "/tmp:rw,size=256m",
-            "--env", "HOME=/tmp",
-            "--volume", repo_abs.replace("\\", "/") + ":/repo:ro",
-            "--volume", name + "-vol:/app",
-            "--workdir", "/app"]
+    # Stage 1 (prep, root-only): copy the repo into the named volume and make it
+    # world-writable. uid 0 only needs DAC-on-own-files here (cp -R and chmod by
+    # owner need no capability), so --cap-drop ALL stays intact. The app never
+    # sees root: --cap-drop ALL also removes CAP_SETUID, so a runtime "drop to
+    # nobody" (setpriv/su) is impossible — instead the app container starts
+    # directly as uid 65534 (runc sets the uid at exec, no setuid syscall).
+    prep_argv = ["docker", "run", "--rm", "--name", name + "-prep",
+                 "--user", "0:0",
+                 "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                 "--read-only", "--tmpfs", "/tmp:rw,size=256m",
+                 "--env", "HOME=/tmp",
+                 "--volume", repo_abs.replace("\\", "/") + ":/repo:ro",
+                 "--volume", name + "-vol:/app",
+                 image, "sh", "-c",
+                 "cp -R /repo/. /app/ && chmod -R a+rwX /app"]
+    app_argv = ["docker", "run", "--rm", "--name", name,
+                "--network", "bridge",
+                "--memory", MEMORY, "--cpus", CPUS,
+                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                "--user", "%s:%s" % (SANDBOX_UID, SANDBOX_UID),
+                "--read-only", "--tmpfs", "/tmp:rw,size=256m",
+                "--env", "HOME=/tmp",
+                "--volume", name + "-vol:/app",
+                "--workdir", "/app"]
     if port:
-        argv += ["--publish", "127.0.0.1:%s:%s" % (port, port)]
+        app_argv += ["--publish", "127.0.0.1:%s:%s" % (port, port)]
         hardening.append("port %s bound to 127.0.0.1 only" % port)
-    argv.append(image)
-
+    app_argv.append(image)
     if cmd:
-        quoted = shlex.quote(cmd)
-        # NOTE: with --cap-drop ALL the container root has no CAP_CHOWN, so
-        # chown-based steps fail with EPERM. cp -R (not -a: -a preserves
-        # ownership and therefore attempts chown) copies as uid 0; the files
-        # end up owned by root, and chmod by owner needs no capability, so
-        # the dropped (nobody) user can still write into /app during install.
-        inner = ("cp -R /repo/. /app/ && chmod -R a+rwX /app && "
-                 "{ if command -v setpriv >/dev/null 2>&1; then "
-                 "exec setpriv --reuid %s --regid %s --clear-groups sh -c %s; "
-                 "else exec su nobody -s /bin/sh -c %s; fi; }"
-                 % (SANDBOX_UID, SANDBOX_UID, quoted, quoted))
+        app_argv += ["sh", "-c", cmd]
     else:
-        notes.append("no --cmd given — pass the install/start command to actually run inside the container")
-        inner = ("cp -R /repo/. /app/ && chmod -R a+rwX /app && "
-                 "{ if command -v setpriv >/dev/null 2>&1; then "
-                 "exec setpriv --reuid %s --regid %s --clear-groups sh; "
-                 "else exec su nobody -s /bin/sh; fi; }"
-                 % (SANDBOX_UID, SANDBOX_UID))
-    argv += ["sh", "-c", inner]
-    notes.append("cleanup: docker rm -f %s && docker volume rm %s-vol" % (name, name))
-    return argv, hardening, notes
+        notes.append("no --cmd given — the app container opens an interactive sh instead")
+        app_argv.append("sh")
+    notes.append("cleanup: docker rm -f %s %s-prep && docker volume rm %s-vol" % (name, name, name))
+    return prep_argv, app_argv, hardening, notes
 
 
 def main():
@@ -137,8 +137,9 @@ def main():
 
     name = args.name or ("rr-sandbox-" + str(int(time.time())))
     image = args.image or default_image_for(root)
-    argv, hardening, notes = build_command(root, image, name, args.port, args.cmd)
-    command = " ".join(shlex.quote(a) for a in argv)
+    prep_argv, app_argv, hardening, notes = build_commands(root, image, name, args.port, args.cmd)
+    prep_command = " ".join(shlex.quote(a) for a in prep_argv)
+    command = " ".join(shlex.quote(a) for a in app_argv)
 
     notes.append("daemon reachable: %s" % ("yes" if daemon else "no (command will fail until Docker is running)"))
 
@@ -147,6 +148,7 @@ def main():
         "docker_version": version,
         "daemon_reachable": daemon,
         "image": image,
+        "prepare_command": prep_command,
         "command": command,
         "hardening": hardening,
         "notes": notes,
@@ -158,7 +160,13 @@ def main():
             print(json.dumps(result, ensure_ascii=False, indent=2))
             sys.exit(1)
         try:
-            proc = subprocess.run(argv, capture_output=True, text=True, timeout=1800)
+            prep = subprocess.run(prep_argv, capture_output=True, text=True, timeout=300)
+            if prep.returncode != 0:
+                result["error"] = "prep container failed (copy repo into volume)"
+                result["prep_output"] = (prep.stdout or prep.stderr).strip()[-2000:]
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+                sys.exit(1)
+            proc = subprocess.run(app_argv, capture_output=True, text=True, timeout=1800)
             result["exit_code"] = proc.returncode
             out = (proc.stdout or "").strip()
             result["container_output"] = out[-2000:] if out else (proc.stderr or "").strip()[-2000:]

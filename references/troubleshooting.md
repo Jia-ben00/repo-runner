@@ -86,10 +86,10 @@
 |---|---|---|
 | `docker_sandbox.py` 退出 1：`docker not found` | 本机未装 docker | 装 Docker（Desktop/Engine）后重试；或按用户决策降级（跳过该步/非隔离运行）。如实报告，不假装隔离 |
 | `daemon reachable: no` | docker 装了但引擎未启动 | 启动 Docker Desktop / 服务后重试；`docker info` 验证 |
-| 容器内 `command not found: setpriv` | 极简镜像（如 alpine）无 util-linux | 脚本已有 `su nobody` 兜底；若仍失败，改用 debian 系镜像（`--image node:22-slim` 等） |
 | 镜像拉取超时/失败 | 网络或 registry 抖动 | 配置 registry 镜像（见 stack-recipes 国内镜像节）；重试 |
-| 容器内安装报权限/只读错误 | rootfs 只读 + 写区受限 | 确认安装命令写 `/app` 或 `/tmp`（HOME 已指到 /tmp）；不要去掉 `--read-only`（那正是隔离的意义） |
-| 隔离运行完留了容器/卷 | `--rm` 只清容器，命名卷残留 | 用输出里的 cleanup 命令：`docker rm -f <name> && docker volume rm <name>-vol` |
+| 退出 1 且 JSON 带 `prep_output` | prep 容器（复制仓库到卷）失败 | 按 `prep_output` 定位（磁盘满、卷被占用等）；手工重跑 JSON 里的 `prepare_command` 观察 |
+| 容器内安装报权限/只读错误 | rootfs 只读 + 写区受限 | 确认安装命令写 `/app` 或 `/tmp`（HOME 已指到 /tmp，/app 已被 prep 阶段放权）；不要去掉 `--read-only`（那正是隔离的意义） |
+| 隔离运行完留了容器/卷 | `--rm` 只清容器，命名卷残留 | 用输出里的 cleanup 命令：`docker rm -f <name> <name>-prep && docker volume rm <name>-vol` |
 
 ## 兜底流程
 

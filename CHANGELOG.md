@@ -7,7 +7,7 @@ All notable changes to repo-runner are documented here. The format follows [Keep
 ### Added
 
 - `scripts/sbom.py` — CycloneDX 1.5 SBOM generation from lockfiles/manifests: npm (`package-lock.json` v1/2/3), pnpm-lock.yaml, yarn.lock (v1), requirements.txt, pyproject.toml, uv.lock, poetry.lock, go.mod, Cargo.lock, Gemfile.lock, composer.lock. Each component carries a purl; unsupported manifests are reported as notes, never silently skipped.
-- `scripts/docker_sandbox.py` — hardened Docker isolation for suspicious repos: non-root user (setpriv drop to nobody/65534), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--read-only` rootfs + tmpfs, `--memory`/`--cpus` limits, repo bind-mounted read-only, single `127.0.0.1` port mapping. `--check-only` prints the command; `--exec` runs it. Auto-picks a base image from stack markers.
+- `scripts/docker_sandbox.py` — hardened Docker isolation for suspicious repos: a root-only **prep** container copies the repo into an isolated named volume, then the app container runs as **nobody** (`--user 65534:65534` at start), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--read-only` rootfs + tmpfs, `--memory`/`--cpus` limits, repo bind-mounted read-only, single `127.0.0.1` port mapping. `--check-only` prints both commands; `--exec` runs them. Auto-picks a base image from stack markers.
 - SKILL.md: isolation-mode step in Stage 3 (gate-flagged repos can be run sandboxed), SBOM step in Stage 5, an SBOM line in the deliverable report, and both new scripts in Resources. Frontmatter description mentions the two capabilities.
 - README (EN + zh-CN): SBOM and sandboxed-run feature bullets + two new rows in the scripts table.
 - `references/troubleshooting.md`: Docker isolation section (docker not found, daemon down, setpriv fallback, slow image pulls, read-only write errors, leftover volume cleanup).
@@ -15,7 +15,7 @@ All notable changes to repo-runner are documented here. The format follows [Keep
 ### Fixed
 
 - (v0.2 development) sbom parsers: version specifiers without a space (`fastapi>=0.100`), yarn v1 `version "x.y.z"` syntax, pnpm-lock.yaml being YAML (not TOML).
-- (v0.2 development) `docker_sandbox.py`: the copy step used `chown`/`cp -a`, both of which fail with EPERM under `--cap-drop ALL` (container root has no CAP_CHOWN) — replaced with `cp -R` + `chmod -R a+rwX`, keeping the dropped (nobody) user writable for installs. Windows repo paths are normalized to forward slashes for Docker volume syntax.
+- (v0.2 development) `docker_sandbox.py`: privilege dropping cannot use `chown`, `cp -a` or a runtime setuid/setpriv step under `--cap-drop ALL` (container root has no CAP_CHOWN/CAP_SETUID → EPERM) — the container now starts directly as uid 65534 via `--user` (runc sets the uid at exec), and repo copy + volume permissions happen in a separate root-only prep container. Windows repo paths are normalized to forward slashes for Docker volume syntax.
 
 ### CI
 

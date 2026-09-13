@@ -178,9 +178,10 @@ jobs:
           d = json.load(open('/tmp/sandbox.json'))
           assert d['docker_available'] is True, d
           assert d['image'] == 'node:22-slim', d
-          for needle in ('--cap-drop', '--read-only', '--security-opt', 'no-new-privileges', 'setpriv'):
+          for needle in ('--cap-drop', '--read-only', '--security-opt', 'no-new-privileges', '--user 65534:65534'):
               assert needle in d['command'], (needle, d['command'])
-          print('docker_sandbox: hardened command OK (image=%s)' % d['image'])
+          assert 'cp -R /repo/. /app/' in d['prepare_command'], d['prepare_command']
+          print('docker_sandbox: hardened commands OK (image=%s)' % d['image'])
           PY
 
       - name: skill structure — SKILL.md frontmatter + required files

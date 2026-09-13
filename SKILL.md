@@ -68,7 +68,7 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
    ```bash
    python <skill_dir>/scripts/docker_sandbox.py --repo <repo_dir> --cmd "<install && start>" [--port <port>]
    ```
-   The script checks docker, auto-picks a base image by stack, and prints a `docker run` command with non-root user, dropped capabilities, no-new-privileges, read-only rootfs, tmpfs, memory/CPU limits, and a read-only repo mount — nothing executes at image build time. Run the printed command (or pass `--exec`). If it exits 1 (docker unavailable), report it and let the user decide (skip the step / proceed non-isolated).
+   The script checks docker, auto-picks a base image by stack, and prints two `docker run` commands: a root-only **prep** container that copies the repo into an isolated named volume, then the app container running as **nobody** (`--user 65534:65534`, dropped capabilities, no-new-privileges, read-only rootfs, tmpfs, memory/CPU limits, read-only repo mount) — nothing executes at image build time, and no install/start script ever runs as root. Run the printed commands (or pass `--exec`). If it exits 1 (docker unavailable), report it and let the user decide (skip the step / proceed non-isolated).
 
 ### Stage 4: Install
 
@@ -116,7 +116,7 @@ Take any repository (a GitHub URL or a local directory) from "a folder" to "a ru
 - `security_gate.py` — Stage 2: the security gate. Scans for remote code execution, reverse shells, secret exfiltration, supply-chain poisoning, destructive commands, and obfuscation; outputs risk level + evidence; exit codes 0/1/2 map to proceed / review / stop.
 - `health_check.py` — Stage 5: TCP connect + common health-path probing, outputs JSON.
 - `sbom.py` — Stage 5: emit a CycloneDX 1.5 SBOM from lockfiles/manifests (npm, pnpm, yarn, pip, pyproject, uv, poetry, Go, Rust, Ruby, PHP). Outputs JSON.
-- `docker_sandbox.py` — Stage 3 isolation mode: check docker, pick a base image by stack, and build (or `--exec`) a hardened `docker run` command — non-root, dropped caps, read-only rootfs, resource limits.
+- `docker_sandbox.py` — Stage 3 isolation mode: check docker, pick a base image by stack, and build (or `--exec`) hardened two-stage `docker run` commands — app runs as nobody, dropped caps, read-only rootfs, resource limits.
 
 ### references/ (read on demand, not all at once)
 - `security-patterns.md` — high-risk patterns the gate may miss but that need manual spot-checks (with examples). Read in Stage 2.
