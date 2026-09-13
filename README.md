@@ -29,7 +29,7 @@ AI coding agents clone repos constantly, yet none of the major skill libraries (
 
 ```bash
 # One command (Claude Code / Codex / Cursor / any agent with npx skills)
-npx skills add <your-org>/repo-runner
+npx skills add Jia-ben00/repo-runner
 
 # Manual: copy the folder to your agent's skills directory
 cp -r repo-runner ~/.claude/skills/
@@ -85,7 +85,7 @@ The skill then:
 
 | Agent | Install |
 |---|---|
-| Claude Code | `npx skills add <your-org>/repo-runner` or copy to `~/.claude/skills/` |
+| Claude Code | `npx skills add Jia-ben00/repo-runner` or copy to `~/.claude/skills/` |
 | Codex / Cursor / OpenClaw | copy folder to the agent's skills directory |
 | Any SKILL.md loader | copy folder, reload |
 
