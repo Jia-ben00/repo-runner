@@ -40,6 +40,105 @@ GIT_HOOK_DIRS = (".husky", "husky", ".githooks", "githooks")
 
 # (key, severity, regex, detail template)
 # Each regex must match the *whole dangerous fragment* so line evidence is useful.
+
+# --- destructive `rm` detection -------------------------------------------
+# A pure regex is the wrong tool for this rule. The question is "does this rm
+# delete a whole filesystem root or a whole home directory?", and answering it
+# by pattern alone forces a choice between missing targets (`rm -rf $HOME`) and
+# swallowing safe ones (`rm -rf /tmp`, `rm -rf ~/project`). Both failure modes
+# were reproduced on the previous implementation.
+#
+# So the rule is expressed as a predicate instead of a regex, and emitted into
+# PATTERNS as a small object exposing `search()`. That keeps severity
+# aggregation, SARIF output, table-driven output and the one-finding-per-line
+# behaviour of scan_file completely unchanged.
+
+# One `rm <flags> <targets...>` invocation.
+_RM_CMD_RE = re.compile(r"\brm\s+(?:-{1,2}[\w-]+\s+)+[^\n;|&]*")
+
+# A single token that, on its own, means "a whole root / a whole home".
+_DANGEROUS_TARGET_RE = re.compile(
+    r"^(?:"
+    r"/\*?|"                                        # /        /*
+    r"~|\*/?|~/\*+|\*|"                             # ~   /*   *   ~/*
+    r"\$\{?HOME\}?|\$\{?USER\}?|"                   # $HOME  ${HOME}  $USER
+    r"\$\{?HOME\}?/\*+|\$\{?USER\}?/\*+|"          # $HOME/*  ${HOME}/*  $USER/*
+    r"\$\([^)]*\)"                                  # $(echo /)
+    r")$"
+)
+
+# A target that deletes *everything inside* a root/home dir, e.g.
+# `$HOME/*.bak` or `~/*.log`. These are not whole-directory wipes, but they
+# still destroy the entire directory's contents, so they stay critical.
+_ROOT_GLOB_RE = re.compile(
+    r"^(?:"
+    r"\$\{?HOME\}?|\$\{?USER\}?|~|/"
+    r")/\*+\.[^\s/]+$"                              # .../*.bak  .../*.log
+)
+
+
+def _norm_target(raw):
+    """Normalise one argument token: drop quotes, collapse a trailing slash.
+
+    `~/` and `~` are the same target, so normalising lets one regex branch
+    cover both. Doing this in code rather than regex is the point of making
+    this rule a predicate.
+    """
+    tok = raw.strip().strip("'\"")
+    if tok.endswith("/") and not tok.endswith("//"):
+        tok = tok.rstrip("/") or "/"
+    return tok
+
+
+def _split_rm_args(cmd):
+    """Split an rm command into args, keeping `$(...)` as one argument.
+
+    A plain `str.split()` breaks `$(echo /)` into `$(echo` and `/)`.
+    """
+    rest = cmd.strip()[2:].strip()          # drop leading "rm"
+    args, depth, buf = [], 0, ""
+    for ch in rest:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch.isspace() and depth == 0:
+            if buf:
+                args.append(buf)
+                buf = ""
+            continue
+        buf += ch
+    if buf:
+        args.append(buf)
+    return args
+
+
+def _rm_is_recursive(args):
+    return any(re.fullmatch(r"-{1,2}(?:[a-zA-Z]*[rR][a-zA-Z]*|recursive)", a)
+               for a in args)
+
+
+def rm_hits_dangerous_target(text):
+    """True if `text` has an `rm -r` whose target is / or a whole home dir.
+
+    Implemented as a predicate rather than a regex: answering "is this target a
+    whole root?" by pattern alone forces a choice between missing targets
+    (`rm -rf $HOME`) and swallowing safe ones (`rm -rf /tmp`, `rm -rf ~/project`).
+    Both failure modes were reproduced on the previous regex.
+    """
+    for m in _RM_CMD_RE.finditer(text):
+        args = _split_rm_args(m.group(0))
+        if not _rm_is_recursive(args):
+            continue
+        for raw in args:
+            if raw.startswith("-"):
+                continue
+            tok = _norm_target(raw)
+            if _DANGEROUS_TARGET_RE.match(tok) or _ROOT_GLOB_RE.match(tok):
+                return True
+    return False
+
+
 PATTERNS = [
     # --- remote code execution ---
     ("curl-pipe-sh", "critical",
@@ -87,16 +186,27 @@ PATTERNS = [
     ("sudo-install", "high",
      r"\bsudo\b[^\n]*(?:npm|pip|gem|apt|yum|brew|dnf|pacman)\s+install",
      "package install under sudo in project script"),
+    # NOTE: the alternation is wrapped in a non-capturing group. Without it the
+    # top-level `|` split the pattern into three independent branches and the
+    # `\b` only constrained the first, so `> /etc/...` (with a space) slipped
+    # through while bare `tee /etc/hosts` matched. Grouping restores intent.
+    # Kept narrow on purpose: a bare `/etc/...` path must NOT match, otherwise
+    # every script that merely *reads* /etc/passwd is reported as high severity.
     ("write-system-dir", "high",
-     r"\b(?:tee|>|>>)\s*/etc/|/usr/(?:local/)?bin|/root/",
+     r"\b(?:tee|cp|mv|install|rsync)\b[^\n]*?(?:/etc/|/usr/(?:local/)?bin|/root/)|"
+     r">>?\s*(?:/etc/|/usr/(?:local/)?bin|/root/)",
      "writes into system directories"),
     ("docker-socket", "high",
      r"/var/run/docker\.sock|docker\s+run[^\n]*-v\s+[^\n]*/:/",
      "host docker socket or root mount access"),
     # --- destructive ---
-    ("rm-root", "critical",
-     r"rm\s+-[^\n]*\s(?:/\s|\s/\*|~\s|~/[^\s]+\s)",
-     "recursive delete of root or home paths"),
+    # `rm-root` is NOT in this table. It needs "is the last argument a whole
+    # root?", which a regex cannot answer without either missing targets
+    # (`rm -rf $HOME`, `rm -rf *`, `rm -rf /*`) or swallowing safe ones
+    # (`rm -rf /tmp`, `rm -rf ~/project`). It is emitted by
+    # `rm_findings()` below and injected by `scan_file`. The original regex
+    # `rm\s+-[^\n]*\s(?:/\s|\s/\*|~\s|~/[^\s]+\s)` and its replacement are both
+    # covered by tests/test_security_gate.py.
     ("dd-disk", "critical",
      r"\bdd\b[^\n]*of=/dev/(?:sda|sdb|sdc|nvme)",
      "dd writes directly to a physical disk"),
@@ -152,6 +262,23 @@ INFO_PATTERNS = [
 
 SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
+# Metadata for the predicate rule, kept beside PATTERNS so SARIF/severity code
+# can look it up by key without special-casing the rule name.
+RM_ROOT_META = ("rm-root", "critical",
+                "recursive delete of root or home paths")
+
+
+def rm_findings(rel, lineno, line):
+    """Emit rm-root findings for one line (see rm_hits_dangerous_target)."""
+    if rm_hits_dangerous_target(line):
+        key, sev, detail = RM_ROOT_META
+        return [{
+            "severity": sev, "file": rel, "line": lineno,
+            "pattern": key, "detail": detail,
+            "evidence": line.strip()[:160],
+        }]
+    return []
+
 
 def iter_target_files(root):
     seen = set()
@@ -191,6 +318,12 @@ def scan_file(root, rel):
         return []
     findings = []
     for lineno, line in enumerate(lines, 1):
+        # Predicate rule first: it is critical, so it must win the
+        # one-finding-per-line tie-break against lower-severity rules.
+        rm_hit = rm_findings(rel, lineno, line)
+        if rm_hit:
+            findings.extend(rm_hit)
+            continue
         for key, sev, regex, detail in PATTERNS:
             if re.search(regex, line, re.IGNORECASE):
                 findings.append({
@@ -334,13 +467,20 @@ def severity_of(findings):
 
 # --- SARIF 2.1.0 output (for GitHub code scanning) ---
 
-VERSION = "0.4.0"
+VERSION = "0.6.0"
 SARIF_LEVEL = {"critical": "error", "high": "error", "medium": "warning",
                "low": "note", "info": "note"}
 
 # Metadata for rules that are not simple PATTERNS entries.
 # key: pattern id -> (rule name, short description, full description)
 RULE_INFO = {
+    "rm-root": (
+        "RmRootTarget",
+        "Recursive delete of a filesystem root or home directory",
+        "An `rm -r` whose target is `/`, `/*`, `~`, `$HOME`, `${HOME}`, "
+        "`$USER`, or a bare `*`. This destroys the whole filesystem or the "
+        "user's entire home directory. Never run it without reading the script.",
+    ),
     "committed-env": (
         "CommittedEnvFile",
         "Secrets file (.env) committed to repository",

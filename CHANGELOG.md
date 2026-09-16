@@ -2,6 +2,25 @@
 
 All notable changes to repo-runner are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and versioning is [Semantic Versioning](https://semver.org/).
 
+## [v0.6.0] - 2026-09-16
+
+### Added
+
+- `tests/test_security_gate.py` — 110 pytest cases covering every rule's positive and negative side, end-to-end `risk_level` / exit-code / SARIF behaviour, and the false-positive guards (`.git/hooks`, BOM, `node_modules`, clean CI configs). Runs locally with `python -m pytest tests/ -v` and in CI.
+- CI — `pytest` step in the `scripts` job, so a rule regression now fails the build instead of shipping silently. Previously the only coverage was inline `python - <<'PY'` asserts in the workflow, which could not be run locally.
+
+### Fixed
+
+- **Critical**: `security_gate.py` `rm-root` missed the most common destructive targets. The regex `rm\s+-[^\n]*\s(?:/\s|\s/\*|~\s|~/[^\s]+\s)` required whitespace *after* the target, so `rm -rf /*`, `rm -rf ~/`, `rm -rf $HOME`, `rm -rf ${HOME}`, `rm -rf $USER`, `rm -rf *`, `cd / && rm -rf *`, `rm -rf ~; reboot`, `rm -rf "$HOME"`, `rm -rf ${HOME}/*.bak` and `rm -rf $(echo /)` all went **undetected** — while `rm -rf ~/project` was a **false positive** reported as a critical whole-home wipe (`~/[^\s]+\s` matched any path under `~/` regardless of depth).
+
+  The rule is now a predicate (`rm_hits_dangerous_target`) rather than a regex: it locates each `rm -r` invocation, splits its arguments without breaking `$(...)`, and classifies each target token. Answering "is this a whole root?" by pattern alone forces a choice between missing targets and swallowing safe ones; both failure modes were reproduced against the previous implementation. `rm -rf /tmp`, `rm -rf ~/project` and `rm -rf ${HOME}/build` stay clean.
+
+- `security_gate.py` `write-system-dir` was split into three independent branches by a top-level `|`, so the `\b` anchor only constrained the first one: `echo hi > /etc/foo` (space before the path) was missed, while a read-only `ls /usr/local/bin` and a relative `mkdir -p ./root/` were both flagged as high severity. The alternation is now grouped and the rule only matches an actual write (`tee`/`cp`/`mv`/`install`/`rsync` into a system dir, or a `>`/`>>` redirect to one).
+
+- `security_gate.py` `PATTERNS` contained a duplicated `dd-disk` entry (both severity `critical`, so no behavioural impact — caught by the new uniqueness test).
+
+- `security_gate.py` SARIF output had no rule definition for `rm-root`, since the rule was no longer a plain `PATTERNS` tuple. It is now registered in `RULE_INFO` as `RmRootTarget`, so code scanning renders a proper description instead of a bare rule id.
+
 ## [v0.5.0] - 2026-09-13
 
 ### Added

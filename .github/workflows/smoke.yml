@@ -139,6 +139,12 @@ jobs:
               len(d['runs'][0]['results']), len(d['runs'][0]['tool']['driver']['rules'])))
           PY
 
+      - name: pytest — security_gate rule regression suite
+        run: |
+          set -euxo pipefail
+          python -m pip install --quiet pytest
+          python -m pytest tests/ -v
+
       - name: Upload SARIF to GitHub code scanning
         if: github.event_name == 'push'
         uses: github/codeql-action/upload-sarif@v3
