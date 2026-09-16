@@ -24,7 +24,12 @@ import tempfile
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GATE = os.path.join(ROOT, "security_gate.py")
+GATE = os.path.join(ROOT, "scripts", "security_gate.py")
+
+# The other scripts are imported nowhere, but the test suite asserts that
+# `scan_file` uses LF-normalised content; keep the repo-root check explicit so
+# a layout change fails loudly instead of silently scanning nothing.
+assert os.path.isfile(GATE), "security_gate.py not found at %s" % GATE
 
 
 def _load_gate():
