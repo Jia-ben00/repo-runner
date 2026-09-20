@@ -148,7 +148,7 @@ Findings appear under **Security → Code scanning** and as inline PR annotation
 repo-runner is also available as a standalone **GitHub Action** — no agent required. Scan any repo URL or local path in CI:
 
 ```yaml
-- uses: Jia-ben00/repo-runner@v0.5.0
+- uses: Jia-ben00/repo-runner@v0.6.0
   with:
     target: https://github.com/owner/repo   # or a local path like "."
     fail-on: high                              # low | medium | high

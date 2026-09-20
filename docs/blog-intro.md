@@ -1,6 +1,6 @@
 # Your AI Agent Should Never Run a Random GitHub Repo Blindly. Here's a Skill That Fixes That.
 
-*Cross-posted from the [repo-runner](https://github.com/Jia-ben00/repo-runner) project. Now available as both an **AI Agent Skill** and a **GitHub Action**. Install with `npx skills add Jia-ben00/repo-runner` or `uses: Jia-ben00/repo-runner@v0.5.0`.*
+*Cross-posted from the [repo-runner](https://github.com/Jia-ben00/repo-runner) project. Now available as both an **AI Agent Skill** and a **GitHub Action**. Install with `npx skills add Jia-ben00/repo-runner` or `uses: Jia-ben00/repo-runner@v0.6.0`.*
 
 ---
 
@@ -94,7 +94,7 @@ The repo currently has **6 live code-scanning alerts** from the test fixture, pr
 The biggest shift: repo-runner is now a **composite GitHub Action**. You don't need an AI agent to use it — drop it into any workflow:
 
 ```yaml
-- uses: Jia-ben00/repo-runner@v0.5.0
+- uses: Jia-ben00/repo-runner@v0.6.0
   with:
     target: https://github.com/owner/repo
     fail-on: high
@@ -127,7 +127,7 @@ Then tell your agent: *"Clone and run https://github.com/some/repo safely."* The
 **As a GitHub Action (no agent required):**
 
 ```yaml
-- uses: Jia-ben00/repo-runner@v0.5.0
+- uses: Jia-ben00/repo-runner@v0.6.0
   with:
     target: .
     fail-on: high

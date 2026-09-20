@@ -148,7 +148,7 @@ SBOM: 187 components → sbom.json (CycloneDX 1.5)
 repo-runner 同时提供独立的 **GitHub Action**——不需要 AI 代理，直接在 CI 中扫描任意仓库 URL 或本地路径：
 
 ```yaml
-- uses: Jia-ben00/repo-runner@v0.5.0
+- uses: Jia-ben00/repo-runner@v0.6.0
   with:
     target: https://github.com/owner/repo   # 或本地路径如 "."
     fail-on: high                              # low | medium | high
