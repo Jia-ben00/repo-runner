@@ -1,0 +1,31 @@
+name: version-sync
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version-sync:
+    name: Release refs agree (CHANGELOG / README / tags)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The check compares the CHANGELOG version against the newest git tag,
+          # so the tags must actually be present in the checkout.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Assert CHANGELOG version == README @ref == newest git tag
+        run: python scripts/check_release_refs.py
