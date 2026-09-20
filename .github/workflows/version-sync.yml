@@ -28,4 +28,4 @@ jobs:
           python-version: "3.12"
 
       - name: Assert CHANGELOG version == README @ref == newest git tag
-        run: python scripts/check_release_refs.py
+        run: python scripts/check_release_refs.py --name repo-runner
